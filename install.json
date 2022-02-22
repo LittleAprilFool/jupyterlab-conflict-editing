@@ -1,0 +1,5 @@
+{
+  "packageManager": "python",
+  "packageName": "conflic_editing",
+  "uninstallInstructions": "Use your Python package manager (pip, conda, etc.) to uninstall the package conflic_editing"
+}

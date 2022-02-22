@@ -1,0 +1,51 @@
+.cell-version {
+  padding-left: 50px;
+}
+
+.version-info-container {
+  font-family: 'Courier New', Courier, monospace;
+  padding: 5px;
+  margin-bottom: 5px;
+  max-width: 200px;
+  height: 20px;
+}
+
+.cell-version-selection-tab-item > div > input {
+    width: 50px;
+}
+
+.version-info-container > div > input {
+  width: 50px;
+}
+
+.version-info-container > div {
+  display: inline;
+}
+
+.hide {
+  display: none !important;
+}
+
+.cell-version-selection-tab-container {
+  padding-left: 50px;
+}
+
+.cell-version-parallel {
+  display: none;
+}
+
+.cell-version-parallel.selected {
+  display: block;
+}
+
+.cell-version-selection-tab-item {
+    display:inline-block;
+    background: whitesmoke;
+    text-align: center;
+    min-width: 80px;
+    padding: 5px;
+}
+
+.cell-version-selection-tab-item.selected {
+    background-color: lightgray;
+}
