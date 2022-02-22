@@ -2,6 +2,8 @@
 
 [![Github Actions Status](https://github.com/github_username/conflic-editing/workflows/Build/badge.svg)](https://github.com/github_username/conflic-editing/actions/workflows/build.yml)
 
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/LittleAprilFool/jupyterlab-conflict-editing.git/HEAD)
+
 A JupyterLab extension.
 
 

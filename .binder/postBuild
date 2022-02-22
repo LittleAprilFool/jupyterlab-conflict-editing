@@ -2,3 +2,4 @@
 set -euo pipefail
 
 python -m pip install .
+python -m pip install jupyterlab-link-share
