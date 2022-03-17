@@ -3,13 +3,13 @@ import { Cell } from '@jupyterlab/cells';
 // unfold; fold; side-by-side
 let renderStyle = 'fold';
 
-export const renderCellDecoration = (cell: Cell) => {
+export const renderCellDecoration = (cell: Cell, cells: Cell[]) => {
   switch (renderStyle) {
     case 'unfold':
       renderUnfold(cell);
       break;
     case 'fold':
-      renderFold(cell);
+      renderFold(cell, cells);
       break;
     default:
       break;
@@ -24,6 +24,7 @@ const renderUnfold = (cell: Cell) => {
     cell.addClass('cell-version');
     const versionInfoNode = document.createElement('div');
     versionInfoNode.classList.add('version-info-container');
+
     const versionInfoLabel = document.createElement('div');
     const versionInfoEditor = document.createElement('div');
     const versionInfoEditorInput = document.createElement('input');
@@ -33,6 +34,7 @@ const renderUnfold = (cell: Cell) => {
     const metaData = cell.model.metadata.get('conflict_editing') as any;
     versionInfoLabel.innerText = metaData.name;
     versionInfoEditorInput.value = metaData.name;
+    versionInfoNode.id = `version-item-${metaData.id}`;
     versionInfoNode.innerText = 'version ';
     versionInfoEditor.appendChild(versionInfoEditorInput);
     versionInfoEditor.appendChild(versionInfoEditorButton);
@@ -58,7 +60,7 @@ const renderUnfold = (cell: Cell) => {
   }
 };
 
-const renderFold = (cell: Cell) => {
+const renderFold = (cell: Cell, cells: Cell[]) => {
   if (
     cell.model.metadata.has('conflict_editing') &&
     !cell.hasClass('cell-version')
@@ -80,7 +82,7 @@ const renderFold = (cell: Cell) => {
     }
     const currentTab = document.createElement('div');
     currentTab.classList.add('cell-version-selection-tab-item');
-    currentTab.id = `selection-item-${metaData.id}`;
+    currentTab.id = `version-item-${metaData.id}`;
 
     const versionInfoLabel = document.createElement('div');
     const versionInfoEditor = document.createElement('div');
@@ -92,14 +94,49 @@ const renderFold = (cell: Cell) => {
     versionInfoEditorInput.value = metaData.name;
     versionInfoEditor.appendChild(versionInfoEditorInput);
     versionInfoEditor.appendChild(versionInfoEditorButton);
+    const mainMark = document.createElement('div');
+    mainMark.className = 'mainmark';
+    if (metaData.ismain) {
+      mainMark.classList.add('ismain');
+    }
     currentTab.appendChild(versionInfoEditor);
     currentTab.appendChild(versionInfoLabel);
+    currentTab.appendChild(mainMark);
     versionInfoLabel.ondblclick = () => {
       versionInfoLabel.classList.toggle('hide');
       versionInfoEditor.classList.toggle('hide');
     };
 
+    mainMark.onclick = () => {
+      const metaData = cell.model.metadata.get('conflict_editing') as any;
+      if (!mainMark.classList.contains('ismain')) {
+        const currentMain = selectionTab?.querySelector('.ismain');
+        // currentMain?.classList.toggle('ismain');
+        // mainMark.classList.toggle('ismain');
+
+        // change the metadata of the old main
+        const oldMainID = currentMain?.parentElement?.id.slice(-4);
+        cells.forEach(cell => {
+          const cmeta = cell.model.metadata.get('conflict_editing') as any;
+          if (cmeta && cmeta.id === oldMainID) {
+            const ncmeta = { ...cmeta };
+            ncmeta.ismain = false;
+            cell.model.metadata.set('conflict_editing', ncmeta as any);
+          }
+        });
+        // change the metadata of the new main
+        const newMeta = { ...metaData };
+        newMeta.ismain = true;
+        cell.model.metadata.set('conflict_editing', newMeta as any);
+      } else {
+        const newMeta = { ...metaData };
+        newMeta.ismain = false;
+        cell.model.metadata.set('conflict_editing', newMeta as any);
+      }
+    };
+
     versionInfoEditorButton.onclick = () => {
+      const metaData = cell.model.metadata.get('conflict_editing') as any;
       const name = versionInfoEditorInput.value;
       const newMeta = { ...metaData };
       newMeta.name = name;
@@ -135,5 +172,22 @@ const renderFold = (cell: Cell) => {
       cell.node.classList.add('selected');
       currentTab.classList.add('selected');
     };
+  }
+  if (
+    cell.model.metadata.has('conflict_editing') &&
+    cell.hasClass('cell-version')
+  ) {
+    const metaData = cell.model.metadata.get('conflict_editing') as any;
+    const tabComponent = document.querySelector(`#version-item-${metaData.id}`);
+    const tabNameEle = tabComponent?.children[1];
+    if (tabNameEle && tabNameEle.textContent !== metaData.name) {
+      tabNameEle.textContent = metaData.name;
+    }
+
+    const mainMark = tabComponent?.querySelector('.mainmark');
+    const isContain = mainMark?.classList.contains('ismain');
+    if (isContain !== metaData.ismain) {
+      mainMark?.classList.toggle('ismain');
+    }
   }
 };

@@ -11,12 +11,12 @@ import { Cell } from '@jupyterlab/cells';
 
 import { IDisposable, DisposableDelegate } from '@lumino/disposable';
 import { random } from './utils';
-import { renderCellDecoration } from './cellDecoration';
 
 interface IMetaDataType {
   id: string;
   parent: string;
   name: string;
+  ismain: boolean;
 }
 
 export class ForkButtonExtension
@@ -43,13 +43,13 @@ export class ForkButtonExtension
       const activeCell = notebook.activeCell;
       if (activeCell) {
         addMetaData(activeCell);
-        renderCellDecoration(activeCell);
+        // renderCellDecoration(activeCell);
         const cellContent = activeCell.model.value.text;
         NotebookActions.insertBelow(notebook);
         const newCell = notebook.activeCell;
         if (newCell) {
           addMetaData(newCell, activeCell);
-          renderCellDecoration(newCell);
+          // renderCellDecoration(newCell);
           newCell.model.value.text = cellContent;
         }
       }
@@ -72,6 +72,7 @@ const addMetaData = (cell: Cell, parent_cell?: Cell) => {
   if (!cell.model.metadata.has('conflict_editing')) {
     const id = random(4);
     let parent_id = id;
+    const ismain = false;
     if (parent_cell) {
       const parent_meta = parent_cell.model.metadata.get('conflict_editing');
       if (parent_meta) {
@@ -81,9 +82,9 @@ const addMetaData = (cell: Cell, parent_cell?: Cell) => {
     const metaData: IMetaDataType = {
       id,
       parent: parent_id,
-      name: id
+      name: id,
+      ismain
     };
-    console.log(metaData);
     cell.model.metadata.set('conflict_editing', metaData as any);
   }
 };
