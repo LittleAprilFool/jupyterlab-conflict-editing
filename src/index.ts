@@ -2,11 +2,7 @@ import {
   JupyterFrontEnd,
   JupyterFrontEndPlugin
 } from '@jupyterlab/application';
-import {
-  INotebookTracker,
-  NotebookActions,
-  NotebookPanel
-} from '@jupyterlab/notebook';
+import { INotebookTracker, NotebookPanel } from '@jupyterlab/notebook';
 import {
   IObservableList,
   IObservableUndoableList,
@@ -14,15 +10,15 @@ import {
 } from '@jupyterlab/observables';
 import { renderCellDecoration } from './cellDecoration';
 import { ForkButtonExtension } from './forkButton';
-import { ISessionContext } from '@jupyterlab/apputils';
-import { OutputArea } from '@jupyterlab/outputarea';
 import { Cell, ICellModel } from '@jupyterlab/cells';
-import { IExecuteReplyMsg } from '@jupyterlab/services/lib/kernel/messages';
-import { JSONObject } from '@lumino/coreutils';
 import { YNotebook } from '@jupyterlab/shared-models';
 import { Awareness } from 'y-protocols/awareness';
 
+import { ExecutionInject } from './executionInject';
+
 let NBTracker: INotebookTracker;
+const executionInject = new ExecutionInject();
+
 const plugin: JupyterFrontEndPlugin<void> = {
   id: 'conflic-editing:plugin',
   autoStart: true,
@@ -33,47 +29,21 @@ const plugin: JupyterFrontEndPlugin<void> = {
     const fontAwesome = document.createElement('script');
     fontAwesome.src = 'https://kit.fontawesome.com/00f360a06b.js';
     document.head.appendChild(fontAwesome);
-    const executeFn = OutputArea.execute;
     let currentCell: Cell | null = null;
     NBTracker = tracker;
     tracker.activeCellChanged.connect((_, cell: Cell | null) => {
       currentCell = cell;
     });
+
+    executionInject.init(tracker.currentWidget?.sessionContext.session as any);
+
     // detect kernel information
     // inject magic cell command
     tracker.currentChanged.connect(onWidgetChange);
-    tracker.currentWidget?.sessionContext.kernelChanged.connect(onKernelChange);
+    tracker.currentWidget?.sessionContext.kernelChanged.connect(
+      executionInject.injectMagicCode.bind(executionInject)
+    );
 
-    // hijack cell execution event
-    NotebookActions.executionScheduled.connect((_: any, output: any) => {
-      if (output.cell.model.metadata.has('conflict_editing')) {
-        const name = output.cell.model.metadata.get('conflict_editing').name;
-        const ismain =
-          output.cell.model.metadata.get('conflict_editing').ismain;
-        OutputArea.execute = (
-          code: string,
-          output: OutputArea,
-          sessionContext: ISessionContext,
-          metadata?: JSONObject | undefined
-        ): Promise<IExecuteReplyMsg | undefined> => {
-          let promise;
-
-          try {
-            // change the code cell value
-            if (ismain) {
-              code = `%%privateMain ${name}\n${code}`;
-            } else {
-              code = `%%private ${name}\n${code}`;
-            }
-            promise = executeFn(code, output, sessionContext, metadata);
-          } finally {
-            OutputArea.execute = executeFn;
-          }
-
-          return promise;
-        };
-      }
-    });
     let lastAwareness: Awareness | null = null;
     tracker.currentChanged.connect((_, notebook: NotebookPanel | null) => {
       if (notebook === null) {
@@ -111,51 +81,11 @@ const plugin: JupyterFrontEndPlugin<void> = {
   }
 };
 
-const magicCode = `
-from IPython.core.magic import (register_line_magic, register_cell_magic)
-
-@register_cell_magic
-def private(line, cell):
-  name=line.split(" ")[0]
-  content = f'class {name}:\\n'
-  for line in cell.split('\\n'):
-    content += f'\\t{line}\\n'
-  content += f'{name}={name}()'
-  exec(content, globals())
-
-@register_cell_magic
-def privateMain(line, cell):
-  name=line.split(" ")[0]
-  content = f'class {name}:\\n'
-  for line in cell.split('\\n'):
-    content += f'\\t{line}\\n'
-  content += f'{name}={name}()'
-  exec(content, globals())
-  exec(f'variable_lists = dir({name})', globals())
-  valid_variable = [x for x in variable_lists if x[0:2]!= '__']
-  for variable in valid_variable:
-    exec(f'{variable} = {name}.{variable}', globals());
-`;
-
-const onKernelChange = (output: any) => {
-  // this._sessionContext.session?.kernel?.requestExecute({
-  //   code,
-  // })
-  console.log('Injecting cell magic');
-  const kernel = output._session.kernel;
-  const future = kernel.requestExecute({
-    code: magicCode
-  });
-  future.onIOPub = (msg: any): void => {
-    if (msg.msg_type === 'error') {
-      console.log(msg);
-    }
-  };
-};
-
 const onWidgetChange = (tracker: INotebookTracker) => {
   console.log('onWidgetChange');
-  tracker.currentWidget?.sessionContext.kernelChanged.connect(onKernelChange);
+  tracker.currentWidget?.sessionContext.kernelChanged.connect(
+    executionInject.injectMagicCode.bind(executionInject)
+  );
   tracker.currentWidget?.content?.model?.cells.changed.connect(onCellsChange);
   tracker.currentWidget?.sessionContext.ready.then(() => {
     // after the notebook is loaded
