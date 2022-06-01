@@ -1,6 +1,6 @@
-# conflic_editing
+# conflict_editing
 
-[![Github Actions Status](https://github.com/github_username/conflic-editing/workflows/Build/badge.svg)](https://github.com/github_username/conflic-editing/actions/workflows/build.yml)
+[![Github Actions Status](https://github.com/github_username/conflict-editing/workflows/Build/badge.svg)](https://github.com/github_username/conflict-editing/actions/workflows/build.yml)
 
 [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/LittleAprilFool/jupyterlab-conflict-editing.git/HEAD)
 
@@ -17,7 +17,7 @@ A JupyterLab extension.
 To install the extension, execute:
 
 ```bash
-pip install conflic_editing
+pip install conflict_editing
 ```
 
 ## Uninstall
@@ -25,7 +25,7 @@ pip install conflic_editing
 To remove the extension, execute:
 
 ```bash
-pip uninstall conflic_editing
+pip uninstall conflict_editing
 ```
 
 
@@ -41,7 +41,7 @@ The `jlpm` command is JupyterLab's pinned version of
 
 ```bash
 # Clone the repo to your local environment
-# Change directory to the conflic_editing directory
+# Change directory to the conflict_editing directory
 # Install package in development mode
 pip install -e .
 # Link your development version of the extension with JupyterLab
@@ -70,12 +70,12 @@ jupyter lab build --minimize=False
 ### Development uninstall
 
 ```bash
-pip uninstall conflic_editing
+pip uninstall conflict_editing
 ```
 
 In development mode, you will also need to remove the symlink created by `jupyter labextension develop`
 command. To find its location, you can run `jupyter labextension list` to figure out where the `labextensions`
-folder is located. Then you can remove the symlink named `conflic-editing` within that folder.
+folder is located. Then you can remove the symlink named `conflict-editing` within that folder.
 
 ### Packaging the extension
 

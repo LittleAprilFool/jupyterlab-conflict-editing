@@ -26,7 +26,7 @@ jobs:
         jlpm run eslint:check
         python -m pip install .
 
-        jupyter labextension list 2>&1 | grep -ie "conflic-editing.*OK"
+        jupyter labextension list 2>&1 | grep -ie "conflict-editing.*OK"
         python -m jupyterlab.browser_check
 
         check-manifest -v
@@ -34,7 +34,7 @@ jobs:
         pip install build
         python -m build --sdist
         cp dist/*.tar.gz myextension.tar.gz
-        pip uninstall -y "conflic_editing" jupyterlab
+        pip uninstall -y "conflict_editing" jupyterlab
         rm -rf myextension
 
     - uses: actions/upload-artifact@v2
