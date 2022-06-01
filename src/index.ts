@@ -34,8 +34,9 @@ const plugin: JupyterFrontEndPlugin<void> = {
     tracker.activeCellChanged.connect((_, cell: Cell | null) => {
       currentCell = cell;
     });
-
-    executionInject.init(tracker.currentWidget?.sessionContext.session as any);
+    if (tracker.currentWidget?.sessionContext.session) {
+      executionInject.init(tracker.currentWidget?.sessionContext.session);
+    }
 
     // detect kernel information
     // inject magic cell command

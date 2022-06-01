@@ -99,7 +99,7 @@ def privateMain(line, cell):
 
 export class ExecutionInject {
   private session: any = null;
-  init(session: Session.ISessionConnection | null) {
+  init(session: Session.ISessionConnection) {
     // this.session = session;
     const executeFn = OutputArea.execute;
     // hijack cell execution event
@@ -133,13 +133,10 @@ export class ExecutionInject {
                     variables = parseVariable(msg.content.text);
                   }
                 };
+                await future.done;
               }
-              // TODO
-              await new Promise(resolve => setTimeout(resolve, 100));
             }
 
-            console.log('wait for kernel?');
-            console.log(variables.join(' '));
             if (variables.length > 0) {
               if (ismain) {
                 code = `%%privateMain ${name} ${variables.join(' ')}\n${code}`;
