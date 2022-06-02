@@ -1,18 +1,13 @@
 import { generateColor } from './utils';
 import { Cell } from '@jupyterlab/cells';
 // unfold; fold; side-by-side
-let renderStyle = 'fold';
+const renderStyle = 'fold';
 
 export const renderCellDecoration = (cell: Cell, cells: Cell[]) => {
-  switch (renderStyle) {
-    case 'unfold':
-      renderUnfold(cell);
-      break;
-    case 'fold':
-      renderFold(cell, cells);
-      break;
-    default:
-      break;
+  if (renderStyle === 'fold') {
+    renderFold(cell, cells);
+  } else {
+    renderUnfold(cell);
   }
 };
 

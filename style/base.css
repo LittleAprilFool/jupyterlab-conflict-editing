@@ -76,3 +76,24 @@
 .cell-version-selection-tab-item > div {
   display: inline;
 }
+
+.widget-wrapper{
+  background-color: white;
+  margin: 10px;
+}
+
+.section-wrapper{
+  padding: 10px;
+}
+
+.section-title{
+  font-weight:800;
+  background-color: blanchedalmond;
+}
+
+.users > .username{
+  font-weight: 700;
+  border-left: solid 10px green;
+  padding: 1px 5px;
+  margin: 10px 0px;
+}

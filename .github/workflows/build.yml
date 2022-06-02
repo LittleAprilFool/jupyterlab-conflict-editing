@@ -39,7 +39,7 @@ jobs:
 
     - uses: actions/upload-artifact@v2
       with:
-        name: myextension-sdist
+        name: myextension-sdist 
         path: myextension.tar.gz
 
   test_isolated:

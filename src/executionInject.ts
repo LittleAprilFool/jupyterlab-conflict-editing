@@ -98,9 +98,15 @@ def privateMain(line, cell):
 `;
 
 export class ExecutionInject {
-  private session: any = null;
+  private session: Session.ISessionConnection | null = null;
   init(session: Session.ISessionConnection) {
-    // this.session = session;
+    console.log('Init the ExecutionInject component', session);
+    this.session = session;
+    this.changeExecutionMethod();
+    return;
+  }
+
+  changeExecutionMethod() {
     const executeFn = OutputArea.execute;
     // hijack cell execution event
     NotebookActions.executionScheduled.connect((_: any, output: any) => {
@@ -120,7 +126,7 @@ export class ExecutionInject {
             // first, execute analyzer to detect what variables are used in the function
             // this should be executed before executionScheduled...
             if (this.session?.kernel) {
-              const kernel = this.session?.kernel;
+              const kernel = this.session.kernel;
               if (kernel) {
                 const future = kernel.requestExecute({
                   code: `analyze("""${code}""")`
@@ -151,7 +157,6 @@ export class ExecutionInject {
                 code = `%%private ${name}\n${code}`;
               }
             }
-
             // TODO: add self to function definition
             promise = executeFn(code, output, sessionContext, metadata);
           } finally {
@@ -161,25 +166,25 @@ export class ExecutionInject {
         };
       }
     });
-    return;
   }
 
   injectMagicCode(output: any) {
     // this._sessionContext.session?.kernel?.requestExecute({
     //   code,
     // })
-    console.log('Injecting cell magic');
     this.session = output._session;
-    const kernel = output._session.kernel;
-    const future = kernel.requestExecute({
-      code: analyzeCode + magicCode
-    });
-    future.onIOPub = (msg: any): void => {
-      console.log(msg);
-      if (msg.msg_type === 'error') {
-        console.log(msg);
-      }
-    };
+    if (this.session) {
+      console.log('Injecting cell magic');
+      const kernel = output._session.kernel;
+      const future = kernel.requestExecute({
+        code: analyzeCode + magicCode
+      });
+      future.onIOPub = (msg: any): void => {
+        if (msg.msg_type === 'error') {
+          console.log(msg);
+        }
+      };
+    }
   }
 }
 
