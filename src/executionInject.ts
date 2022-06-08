@@ -70,6 +70,7 @@ def private(line, cell):
       line = newl
     content += f'\\t{line}\\n'
   content += f'{name}={name}()'
+  print(content)
   exec(content, globals())
 
 @register_cell_magic
@@ -157,6 +158,7 @@ export class ExecutionInject {
                 code = `%%private ${name}\n${code}`;
               }
             }
+            console.log(code);
             // TODO: add self to function definition
             promise = executeFn(code, output, sessionContext, metadata);
           } finally {
