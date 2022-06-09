@@ -93,6 +93,7 @@ def privateMain(line, cell):
       line = newl
     content += f'\\t{line}\\n'
   content += f'{name}={name}()'
+  print(content)
   exec(content, globals())
   for variable in variables:
     exec(f'{variable} = {name}.{variable}', globals())
@@ -124,6 +125,9 @@ export class ExecutionInject {
           let promise;
           try {
             let variables: string[] = [];
+            let variables_glob: string[] = [];
+            let variables_local: string[] = [];
+
             // first, execute analyzer to detect what variables are used in the function
             // this should be executed before executionScheduled...
             if (this.session?.kernel) {
@@ -137,10 +141,28 @@ export class ExecutionInject {
                     console.log(msg);
                   }
                   if (msg.msg_type === 'stream') {
-                    variables = parseVariable(msg.content.text);
+                    variables_local = parseVariable(msg.content.text);
                   }
                 };
                 await future.done;
+
+                const future2 = kernel.requestExecute({
+                  code: 'dir()'
+                });
+                future2.onIOPub = (msg: any): void => {
+                  if (msg.msg_type === 'error') {
+                    console.log(msg);
+                  }
+                  if (msg.msg_type === 'execute_result') {
+                    variables_glob = parseGlobalVariable(
+                      msg.content.data['text/plain']
+                    );
+                  }
+                };
+                await future2.done;
+                variables = variables_local.filter(x =>
+                  variables_glob.includes(x)
+                );
               }
             }
 
@@ -195,5 +217,13 @@ const parseVariable = (text: string) => {
   const result = JSON.parse(replaced);
   const unique = [...new Set(result.variable)] as string[];
 
+  return unique;
+};
+
+const parseGlobalVariable = (text: string) => {
+  const replaced = text.split("'").join('"');
+  const result = JSON.parse(replaced);
+  const unique = [...new Set(result)] as string[];
+  console.log(unique);
   return unique;
 };

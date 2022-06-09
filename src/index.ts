@@ -28,7 +28,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
   autoStart: true,
   requires: [INotebookTracker],
   activate: (app: JupyterFrontEnd, tracker: INotebookTracker) => {
-    console.log('JupyterLab extension conflic-editing is activated!!!91214');
+    console.log('JupyterLab extension conflic-editing is activated!!!233');
     app.docRegistry.addWidgetExtension('Notebook', new ForkButtonExtension());
     const fontAwesome = document.createElement('script');
     fontAwesome.src = 'https://kit.fontawesome.com/00f360a06b.js';
@@ -47,6 +47,8 @@ const plugin: JupyterFrontEndPlugin<void> = {
       async (_sender: INotebookTracker, notebookPanel: NotebookPanel) => {
         await notebookPanel.revealed;
         await notebookPanel.sessionContext.ready;
+        console.log('kernel restart');
+        await notebookPanel.sessionContext.session?.kernel?.restart();
 
         // after opening a widget, rewrite the cell execution method, and execute the magic code
         if (notebookPanel.sessionContext.session) {
