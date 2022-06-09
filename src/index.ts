@@ -28,7 +28,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
   autoStart: true,
   requires: [INotebookTracker],
   activate: (app: JupyterFrontEnd, tracker: INotebookTracker) => {
-    console.log('JupyterLab extension conflic-editing is activated!!!233');
+    console.log('JupyterLab extension conflic-editing is activated!!!2332');
     app.docRegistry.addWidgetExtension('Notebook', new ForkButtonExtension());
     const fontAwesome = document.createElement('script');
     fontAwesome.src = 'https://kit.fontawesome.com/00f360a06b.js';

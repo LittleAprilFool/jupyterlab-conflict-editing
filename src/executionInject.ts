@@ -105,6 +105,7 @@ export class ExecutionInject {
     console.log('Init the ExecutionInject component', session);
     this.session = session;
     this.changeExecutionMethod();
+    this.injectMagicCode();
     return;
   }
 
@@ -192,15 +193,17 @@ export class ExecutionInject {
     });
   }
 
-  injectMagicCode(output: any) {
+  injectMagicCode(output?: any) {
     // this._sessionContext.session?.kernel?.requestExecute({
     //   code,
     // })
-    this.session = output._session;
-    if (this.session) {
+    if (output) {
+      this.session = output._session;
+    }
+    if (this.session?.kernel) {
       console.log('Injecting cell magic');
-      const kernel = output._session.kernel;
-      const future = kernel.requestExecute({
+      const kernel = this.session.kernel;
+      const future = kernel?.requestExecute({
         code: analyzeCode + magicCode
       });
       future.onIOPub = (msg: any): void => {
