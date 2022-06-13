@@ -97,3 +97,19 @@
   padding: 1px 5px;
   margin: 10px 0px;
 }
+
+.notReadable {
+  background: black !important;
+}
+
+.colab-lock::before {
+  font-family: "Font Awesome 5 Free";
+  content: "\f023";
+  vertical-align: middle;
+  font-weight: 900;
+  font-size: 12px;
+  color: #7b7b7b;
+  position:absolute;
+  left: 10px;
+  top: 10px;
+}

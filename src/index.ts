@@ -22,20 +22,19 @@ import { MainAreaWidget } from '@jupyterlab/apputils';
 // let NBTracker: INotebookTracker;
 const executionInject = new ExecutionInject();
 let thisUser = '';
-
+const collaborationWidget = new CollaborationWidget();
 const plugin: JupyterFrontEndPlugin<void> = {
-  id: 'conflic-editing:plugin',
+  id: 'conflict-editing:plugin',
   autoStart: true,
   requires: [INotebookTracker],
   activate: (app: JupyterFrontEnd, tracker: INotebookTracker) => {
-    console.log('JupyterLab extension conflic-editing is activated!!!2332');
+    console.log('JupyterLab extension conflict-editing is activated!!!2333');
     app.docRegistry.addWidgetExtension('Notebook', new ForkButtonExtension());
     const fontAwesome = document.createElement('script');
     fontAwesome.src = 'https://kit.fontawesome.com/00f360a06b.js';
     document.head.appendChild(fontAwesome);
 
     // add side widget
-    const collaborationWidget = new CollaborationWidget();
     const widget = new MainAreaWidget<CollaborationWidget>({
       content: collaborationWidget
     });
@@ -47,14 +46,10 @@ const plugin: JupyterFrontEndPlugin<void> = {
       async (_sender: INotebookTracker, notebookPanel: NotebookPanel) => {
         await notebookPanel.revealed;
         await notebookPanel.sessionContext.ready;
-        console.log('kernel restart');
-        await notebookPanel.sessionContext.session?.kernel?.restart();
 
         // after opening a widget, rewrite the cell execution method, and execute the magic code
         if (notebookPanel.sessionContext.session) {
           executionInject.init(notebookPanel.sessionContext.session);
-          // TODO
-          // need to inject the magic code after opening the first notebook
         }
 
         // if the user restarts the kernel, execute the magic code again
@@ -66,11 +61,15 @@ const plugin: JupyterFrontEndPlugin<void> = {
         const widgets = tracker.currentWidget?.content?.widgets;
         widgets?.forEach(widget => {
           // attach meta change callback to code cell
-          widget.model.metadata.changed.connect((metaData: IObservableJSON) => {
-            onCellMetaChange(metaData, widget, widgets as Cell[]);
-          });
+          widget.model.metadata.changed.connect(
+            (metaData: IObservableJSON, changes?: any) => {
+              onCellMetaChange(metaData, widget, widgets as Cell[], changes);
+              // collaborationWidget.updateMetaData(metaData);
+            }
+          );
           // render existing versions
           const metaData = widget.model.metadata.get('conflict_editing') as any;
+          // TODO: sometimes the cell decoration is not rendered when refreshing the page; no metadata is read from the model; close and reopen notebook would fix;
           if (metaData) {
             renderCellDecoration(widget, widgets as Cell[]);
           }
@@ -162,28 +161,41 @@ const plugin: JupyterFrontEndPlugin<void> = {
 const onCellMetaChange = (
   cmetaData: IObservableJSON,
   widget: Cell,
-  widgets: Cell[]
+  widgets: Cell[],
+  changes: any
 ) => {
-  console.log('cell meta changed!!', cmetaData);
-  const conflictData = cmetaData.get('conflict_editing') as any;
-  if (conflictData) {
-    renderCellDecoration(widget, widgets);
-  }
-  const accessData = cmetaData.get('access_control') as any;
-  if (accessData) {
-    if (thisUser in accessData.edit) {
-      console.log('set read only to true');
-      // widget.readOnly = true;
-    } else {
-      console.log('set read only to false');
-      // widget.readOnly = false;
+  console.log('cell meta change');
+  if (changes.key === 'conflict_editing') {
+    console.log('cell meta changed!!', cmetaData, changes);
+    const conflictData = cmetaData.get('conflict_editing') as any;
+    if (conflictData) {
+      renderCellDecoration(widget, widgets);
     }
-    if (thisUser in accessData.read) {
-      //TODO
-      console.log('render not readable view');
-    } else {
-      //TODO
-      console.log('render readable view');
+  }
+  if (changes.key === 'access_control') {
+    console.log('cell meta changed!!', cmetaData, changes);
+    const accessData = changes.newValue;
+    collaborationWidget.updateAccessData(accessData);
+    console.log(thisUser);
+    if (accessData) {
+      if (accessData.edit.includes(thisUser)) {
+        console.log('set read only to true');
+        widget.editor.setOption('readOnly', true);
+        widget.addClass('colab-lock');
+      } else {
+        console.log('set read only to false');
+        widget.editor.setOption('readOnly', false);
+        widget.removeClass('colab-lock');
+      }
+      if (accessData.read.includes(thisUser)) {
+        //TODO
+        console.log('render not readable view');
+
+        widget.addClass('notReadable');
+      } else {
+        //TODO
+        widget.removeClass('notReadable');
+      }
     }
   }
 };
@@ -198,9 +210,11 @@ const onCellsChange = (
     const widgets = tracker.currentWidget?.content.widgets;
     if (widgets && widgets.length > 0) {
       const widget = widgets[changes.newIndex];
-      widget.model.metadata.changed.connect((metaData: IObservableJSON) => {
-        onCellMetaChange(metaData, widget, widgets as Cell[]);
-      });
+      widget.model.metadata.changed.connect(
+        (metaData: IObservableJSON, changes) => {
+          onCellMetaChange(metaData, widget, widgets as Cell[], changes);
+        }
+      );
     }
   }
   if (changes?.type === 'remove') {

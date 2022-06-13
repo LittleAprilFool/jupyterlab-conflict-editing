@@ -70,7 +70,6 @@ def private(line, cell):
       line = newl
     content += f'\\t{line}\\n'
   content += f'{name}={name}()'
-  print(content)
   exec(content, globals())
 
 @register_cell_magic
@@ -93,7 +92,6 @@ def privateMain(line, cell):
       line = newl
     content += f'\\t{line}\\n'
   content += f'{name}={name}()'
-  print(content)
   exec(content, globals())
   for variable in variables:
     exec(f'{variable} = {name}.{variable}', globals())
@@ -104,6 +102,7 @@ export class ExecutionInject {
   init(session: Session.ISessionConnection) {
     console.log('Init the ExecutionInject component', session);
     this.session = session;
+    // TODO: check if the magic code is already inserted by a collaborator
     this.changeExecutionMethod();
     this.injectMagicCode();
     return;
@@ -181,7 +180,6 @@ export class ExecutionInject {
                 code = `%%private ${name}\n${code}`;
               }
             }
-            console.log(code);
             // TODO: add self to function definition
             promise = executeFn(code, output, sessionContext, metadata);
           } finally {
@@ -227,6 +225,5 @@ const parseGlobalVariable = (text: string) => {
   const replaced = text.split("'").join('"');
   const result = JSON.parse(replaced);
   const unique = [...new Set(result)] as string[];
-  console.log(unique);
   return unique;
 };
