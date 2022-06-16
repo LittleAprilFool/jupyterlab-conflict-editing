@@ -9,6 +9,79 @@ import { OutputArea } from '@jupyterlab/outputarea';
 
 import { Session } from '@jupyterlab/services';
 
+const multiCode = `
+## Now create a class
+
+class PrivateScope:
+    def __prerun__(self, __code, __scope):
+        if (__scope==None):
+            exec(__code)
+            result = eval("locals().keys()")
+        else:
+            exec(__code, __scope)
+            result = eval("locals().keys()", __scope)
+        return result
+    def __run__(self, __code, __scope):
+        if __scope==None:
+            exec(__code)
+        else:
+            exec(__code, __scope)
+    def __locals__(self):
+        return eval("locals().keys()")
+
+import sys
+from io import StringIO 
+
+class NullIO(StringIO):
+    def write(self, txt):
+       pass
+
+def rewriteCode(code, variables):
+    content = code + '\\n'
+    for variable in variables:
+        content +=f'self.{variable}={variable}\\n'
+    return content
+
+def getCleanList(lst):
+    return list(filter(lambda a: a[0]!='_' and a!='self', lst))
+
+import json
+
+def attrtoLocals(attrs, model):
+    content = '{'
+    if len(attrs) == 0:
+        return 'None'
+    else:
+        for attr in attrs:
+            content = content + f'"{attr}":{model}.{attr},'
+        content = content + f'"self":{model}'
+        content = content + '}'
+    return(content)
+
+from IPython.core.magic import (register_line_magic, register_cell_magic)
+@register_cell_magic
+def privateMulti(line, cell):
+    name=line.split(" ")[0]
+    variables=line.split(" ")[1:]
+    exec(f'__code = """{cell}"""', globals())
+    content = f"""
+if not "{name}" in locals():
+  {name} = PrivateScope()
+pre_attr = getCleanList(dir({name}))
+pre_locals = attrtoLocals(pre_attr, "{name}")
+"""
+    exec(content, globals())
+    content = f"""
+nb_stdout = sys.stdout
+sys.stdout = NullIO()
+exec('post_attrs = {name}.__prerun__(__code, {pre_locals})')
+sys.stdout = nb_stdout
+post_attrs = getCleanList(post_attrs)
+code_rewrite = rewriteCode(__code, post_attrs)
+exec('{name}.__run__(code_rewrite, {pre_locals})')
+"""
+    exec(content, globals())        
+`;
 const analyzeCode = `
 import ast
 from pprint import pprint
@@ -17,7 +90,7 @@ def analyze(code):
     tree = ast.parse(code)
     analyzer = Analyzer()
     analyzer.visit(tree)
-    analyzer.report()
+    # analyzer.report()
 
 
 class Analyzer(ast.NodeVisitor):
@@ -170,14 +243,16 @@ export class ExecutionInject {
               if (ismain) {
                 code = `%%privateMain ${name} ${variables.join(' ')}\n${code}`;
               } else {
-                code = `%%private ${name} ${variables.join(' ')}\n${code}`;
+                // code = `%%private ${name} ${variables.join(' ')}\n${code}`;
+                code = `%%privateMulti ${name} \n${code}`;
               }
             } else {
               // change the code cell value
               if (ismain) {
                 code = `%%privateMain ${name}\n${code}`;
               } else {
-                code = `%%private ${name}\n${code}`;
+                // code = `%%private ${name}\n${code}`;
+                code = `%%privateMulti ${name}\n${code}`;
               }
             }
             // TODO: add self to function definition
@@ -202,7 +277,7 @@ export class ExecutionInject {
       console.log('Injecting cell magic');
       const kernel = this.session.kernel;
       const future = kernel?.requestExecute({
-        code: analyzeCode + magicCode
+        code: analyzeCode + magicCode + multiCode
       });
       future.onIOPub = (msg: any): void => {
         if (msg.msg_type === 'error') {
