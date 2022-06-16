@@ -98,8 +98,18 @@
   margin: 10px 0px;
 }
 
-.notReadable {
-  background: black !important;
+.notReadable > .jp-Cell-inputWrapper > .jp-Cell-inputArea > .jp-InputArea-editor {
+  background: repeating-linear-gradient(
+    45deg,
+    #aaa,
+    #aaa 10px,
+    #bbb 10px,
+    #bbb 20px
+  );
+}
+
+.notReadable > .jp-Cell-inputWrapper > .jp-Cell-inputArea > .jp-InputArea-editor > .CodeMirror {
+  display: none;
 }
 
 .colab-lock::before {
@@ -112,4 +122,8 @@
   position:absolute;
   left: 10px;
   top: 10px;
+}
+
+.colab-lock{
+  filter: blur(2px);
 }

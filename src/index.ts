@@ -88,7 +88,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
         // simulate user info
         const username = document.cookie
           .split('; ')
-          ?.find(row => row.startsWith('fakename='))
+          ?.find(row => row.startsWith('hub_user='))
           ?.split('=')[1];
 
         const model = notebookPanel.content.model!.sharedModel as YNotebook;
