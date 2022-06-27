@@ -64,7 +64,6 @@ const plugin: JupyterFrontEndPlugin<void> = {
           widget.model.metadata.changed.connect(
             (metaData: IObservableJSON, changes?: any) => {
               onCellMetaChange(metaData, widget, widgets as Cell[], changes);
-              // collaborationWidget.updateMetaData(metaData);
             }
           );
           // render existing versions
@@ -115,46 +114,10 @@ const plugin: JupyterFrontEndPlugin<void> = {
     );
 
     tracker.activeCellChanged.connect((_, cell: Cell | null) => {
-      // const model = cell?.model.sharedModel;
       if (cell) {
         collaborationWidget.updateCellSelection(cell);
       }
     });
-
-    // let lastAwareness: Awareness | null = null;
-    // tracker.currentChanged.connect((_, notebook: NotebookPanel | null) => {
-    //   if (notebook === null) {
-    //     lastAwareness = null;
-    //     return;
-    //   }
-
-    //   // Clean up old awareness handler
-    //   if (lastAwareness !== null) {
-    //     lastAwareness.off('change', awarenessHandler);
-    //   }
-
-    //   // Add new awareness handler
-    //   const model = notebook.model!.sharedModel as YNotebook;
-    //   lastAwareness = model.awareness;
-    //   model.awareness.on('change', awarenessHandler);
-    // });
-    // const awarenessHandler = (_awareness: any): void => {
-    //   // if this cell is a private cell, add awareness info
-    //   if (currentCell && currentCell.model.metadata.has('conflict_editing')) {
-    //     // console.log('add awareness to the cell');
-    //     // console.log(currentCell.model);
-    //     // console.log(lastAwareness?.getLocalState());
-    //     // const metaData = currentCell.model.metadata.get(
-    //     //   'conflict_editing'
-    //     // ) as any;
-    //     // const versionItem = document.querySelector(
-    //     //   `#version-item-${metaData.id}`
-    //     // );
-    //     // if (!versionItem) {
-    //     //   renderCellDecoration(currentCell);
-    //     // }
-    //   }
-    // };
   }
 };
 
@@ -176,25 +139,18 @@ const onCellMetaChange = (
     console.log('cell meta changed!!', cmetaData, changes);
     const accessData = changes.newValue;
     collaborationWidget.updateAccessData(accessData);
-    console.log(thisUser);
     if (accessData) {
       if (accessData.edit.includes(thisUser)) {
-        console.log('set read only to true');
         widget.editor.setOption('readOnly', true);
-        widget.addClass('colab-lock');
+        widget.addClass('colab-edit-lock');
       } else {
-        console.log('set read only to false');
         widget.editor.setOption('readOnly', false);
-        widget.removeClass('colab-lock');
+        widget.removeClass('colab-edit-lock');
       }
       if (accessData.read.includes(thisUser)) {
-        //TODO
-        console.log('render not readable view');
-
-        widget.addClass('notReadable');
+        widget.addClass('colab-read-lock');
       } else {
-        //TODO
-        widget.removeClass('notReadable');
+        widget.removeClass('colab-read-lock');
       }
     }
   }

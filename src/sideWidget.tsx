@@ -8,7 +8,6 @@ import React, { useState } from 'react';
 interface ICollaborationComponentProps {
   cell: Cell | null;
   access_meta: any;
-  callback: any;
   userlist: string[];
 }
 
@@ -30,39 +29,9 @@ const toggle = (collection: string[], item: string) => {
 const CollaborationComponent = ({
   cell,
   access_meta,
-  callback,
   userlist
 }: ICollaborationComponentProps): JSX.Element => {
   const [counter, setCounter] = useState(0);
-
-  // const checkAccess = (user: string, type: string): boolean => {
-  //   let flag = true;
-  //   if (cell) {
-  //     const access_meta = cell.model.metadata.get('access_control') as any;
-  //     // const access_meta = access;
-  //     if (access_meta) {
-  //       if (type === 'Edit') {
-  //         const edit_black = access_meta.edit;
-  //         console.log('ues edit', user in edit_black);
-  //         if (user in edit_black) {
-  //           flag = false;
-  //         }
-  //       }
-  //       if (type === 'Read') {
-  //         const read_black = access_meta.read;
-  //         if (user in read_black) {
-  //           flag = false;
-  //         }
-  //       }
-  //     }
-  //     // console.log(user, type, access_meta);
-  //     // console.log(flag);
-  //     return flag;
-  //   } else {
-  //     // console.log(flag);
-  //     return flag;
-  //   }
-  // };
 
   const changeAccess = (user: string, type: string): any => {
     let access = {
@@ -70,9 +39,8 @@ const CollaborationComponent = ({
       read: [] as string[]
     };
     if (cell) {
-      const access_meta = cell.model.metadata.get('access_control') as any;
       if (access_meta) {
-        access = access_meta;
+        access = JSON.parse(JSON.stringify(access_meta));
       }
 
       if (type === 'Edit') {
@@ -82,8 +50,6 @@ const CollaborationComponent = ({
         access.read = toggle(access.read, user);
       }
     }
-    console.log('set metadata - access control', access, cell);
-    callback('haha');
     cell?.model.metadata.set('access_control', access);
   };
 
@@ -106,8 +72,6 @@ const CollaborationComponent = ({
       </div>
 
       <div className="section-wrapper">
-        <div>{'Edit:' + access_meta.edit}</div>
-        <div>{'Read:' + access_meta.read}</div>
         <div className="section-title">Can Edit the Cell</div>
         <div className="section-content">
           <div className="users">
@@ -164,7 +128,6 @@ const CollaborationComponent = ({
           <button
             onClick={(): void => {
               setCounter(counter + 1);
-              callback(counter);
             }}
           >
             Increment
@@ -199,7 +162,6 @@ export class CollaborationWidget extends ReactWidget {
     this.updateWidget.emit({
       cell: this.cell,
       access_meta,
-      callback: this.callback,
       userlist: this.userlist
     });
   }
@@ -209,7 +171,6 @@ export class CollaborationWidget extends ReactWidget {
     this.updateWidget.emit({
       cell: this.cell,
       access_meta: data,
-      callback: this.callback,
       userlist: this.userlist
     });
   }
@@ -223,27 +184,14 @@ export class CollaborationWidget extends ReactWidget {
       this.updateWidget.emit({
         cell: this.cell,
         access_meta,
-        callback: this.callback,
         userlist: this.userlist
       });
     }
   }
 
-  callback(text: string): void {
-    console.log(text, this.cell);
-    this.cell?.model.metadata.set('access_control', {
-      edit: [],
-      read: []
-    });
-  }
-
-  //   render(): JSX.Element {
-  //     return <CollaborationComponent content={this.test} />;
-  //   }
   render(): React.ReactElement<any> {
     const init: ICollaborationComponentProps = {
       cell: null,
-      callback: this.callback.bind(this),
       access_meta: { edit: [], read: [] },
       userlist: this.userlist
     };
@@ -255,7 +203,6 @@ export class CollaborationWidget extends ReactWidget {
               <CollaborationComponent
                 cell={args?.cell ?? null}
                 access_meta={args?.access_meta ?? { edit: [], read: [] }}
-                callback={args?.callback.bind(this)}
                 userlist={args?.userlist ?? []}
               />
             );

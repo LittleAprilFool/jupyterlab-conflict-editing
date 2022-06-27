@@ -98,21 +98,11 @@
   margin: 10px 0px;
 }
 
-.notReadable > .jp-Cell-inputWrapper > .jp-Cell-inputArea > .jp-InputArea-editor {
-  background: repeating-linear-gradient(
-    45deg,
-    #aaa,
-    #aaa 10px,
-    #bbb 10px,
-    #bbb 20px
-  );
+.colab-read-lock > .jp-Cell-inputWrapper > .jp-Cell-inputArea > .jp-InputArea-editor > .CodeMirror {
+  filter: blur(5px);
 }
 
-.notReadable > .jp-Cell-inputWrapper > .jp-Cell-inputArea > .jp-InputArea-editor > .CodeMirror {
-  display: none;
-}
-
-.colab-lock::before {
+/* .colab-lock::before {
   font-family: "Font Awesome 5 Free";
   content: "\f023";
   vertical-align: middle;
@@ -122,8 +112,14 @@
   position:absolute;
   left: 10px;
   top: 10px;
-}
+} */
 
-.colab-lock{
-  filter: blur(2px);
+.colab-edit-lock > .jp-Cell-inputWrapper > .jp-Cell-inputArea > .jp-InputArea-editor > .CodeMirror {
+  background: repeating-linear-gradient(
+    45deg,
+    #ddd,
+    #ddd 10px,
+    #eee 10px,
+    #eee 20px
+  );
 }
