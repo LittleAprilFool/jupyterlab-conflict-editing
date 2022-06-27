@@ -3,7 +3,7 @@ import { Cell } from '@jupyterlab/cells';
 import { UseSignal } from '@jupyterlab/apputils';
 import { Signal } from '@lumino/signaling';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface ICollaborationComponentProps {
   cell: Cell | null;
@@ -32,6 +32,21 @@ const CollaborationComponent = ({
   userlist
 }: ICollaborationComponentProps): JSX.Element => {
   const [counter, setCounter] = useState(0);
+  const activeCellRef = React.useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (activeCellRef.current) {
+      if (cell?.node) {
+        const editor = cell?.node.querySelector('.jp-InputArea-editor');
+        if (editor) {
+          while (activeCellRef.current.lastChild) {
+            activeCellRef.current.removeChild(activeCellRef.current.lastChild);
+          }
+          const newNode = editor.cloneNode(true);
+          activeCellRef.current.appendChild(newNode);
+        }
+      }
+    }
+  }, [cell]);
 
   const changeAccess = (user: string, type: string): any => {
     let access = {
@@ -68,7 +83,9 @@ const CollaborationComponent = ({
 
       <div className="section-wrapper">
         <div className="section-title">Selected Code Cell</div>
-        <div className="section-content">{cell?.model.value.text ?? ''}</div>
+        <div className="section-content">
+          <div ref={activeCellRef}></div>
+        </div>
       </div>
 
       <div className="section-wrapper">
