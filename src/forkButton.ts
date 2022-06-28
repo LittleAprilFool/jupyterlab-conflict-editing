@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/explicit-module-boundary-types */
 import { ToolbarButton } from '@jupyterlab/apputils';
 import { DocumentRegistry } from '@jupyterlab/docregistry';
 
@@ -30,10 +31,13 @@ export class ForkButtonExtension
    * @returns Disposable on the added button
    */
   //   private _notebookTracker: INotebookTracker;
-
+  private _originInsertBelow: any;
   //   constructor(notebookTracker: INotebookTracker) {
   //     this._notebookTracker = notebookTracker;
   //   }
+  constructor(originInsertBelow: any) {
+    this._originInsertBelow = originInsertBelow;
+  }
   createNew(
     panel: NotebookPanel,
     context: DocumentRegistry.IContext<INotebookModel>
@@ -45,7 +49,7 @@ export class ForkButtonExtension
         addMetaData(activeCell);
         // renderCellDecoration(activeCell);
         const cellContent = activeCell.model.value.text;
-        NotebookActions.insertBelow(notebook);
+        this._originInsertBelow(notebook);
         const newCell = notebook.activeCell;
         if (newCell) {
           addMetaData(newCell, activeCell);

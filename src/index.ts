@@ -18,10 +18,12 @@ import { ExecutionInject } from './executionInject';
 import { CollaborationWidget } from './sideWidget';
 import * as Icons from '@jupyterlab/ui-components';
 import { MainAreaWidget } from '@jupyterlab/apputils';
+import { changeCellActions } from './cellActions';
 
 // let NBTracker: INotebookTracker;
 const executionInject = new ExecutionInject();
 let thisUser = '';
+const renderStyle = 'fold';
 const collaborationWidget = new CollaborationWidget();
 const plugin: JupyterFrontEndPlugin<void> = {
   id: 'conflict-editing:plugin',
@@ -29,11 +31,15 @@ const plugin: JupyterFrontEndPlugin<void> = {
   requires: [INotebookTracker],
   activate: (app: JupyterFrontEnd, tracker: INotebookTracker) => {
     console.log('JupyterLab extension conflict-editing is activated!!!2333');
-    app.docRegistry.addWidgetExtension('Notebook', new ForkButtonExtension());
+    // change the cell insert, copy, delete behaviors
+    const { originInsertBelow } = changeCellActions();
+    app.docRegistry.addWidgetExtension(
+      'Notebook',
+      new ForkButtonExtension(originInsertBelow)
+    );
     const fontAwesome = document.createElement('script');
     fontAwesome.src = 'https://kit.fontawesome.com/00f360a06b.js';
     document.head.appendChild(fontAwesome);
-
     // add side widget
     const widget = new MainAreaWidget<CollaborationWidget>({
       content: collaborationWidget
@@ -46,6 +52,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
       async (_sender: INotebookTracker, notebookPanel: NotebookPanel) => {
         await notebookPanel.revealed;
         await notebookPanel.sessionContext.ready;
+        await tracker.currentWidget?.revealed;
 
         // after opening a widget, rewrite the cell execution method, and execute the magic code
         if (notebookPanel.sessionContext.session) {
@@ -70,7 +77,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
           const metaData = widget.model.metadata.get('conflict_editing') as any;
           // TODO: sometimes the cell decoration is not rendered when refreshing the page; no metadata is read from the model; close and reopen notebook would fix;
           if (metaData) {
-            renderCellDecoration(widget, widgets as Cell[]);
+            renderCellDecoration(widget, widgets as Cell[], renderStyle);
           }
         });
 
@@ -97,8 +104,6 @@ const plugin: JupyterFrontEndPlugin<void> = {
           model.awareness.setLocalStateField('user', { name: username });
           thisUser = username;
         }
-
-        console.log(thisUser);
 
         // collect current users
         model.awareness.on('change', () => {
@@ -132,7 +137,7 @@ const onCellMetaChange = (
     console.log('cell meta changed!!', cmetaData, changes);
     const conflictData = cmetaData.get('conflict_editing') as any;
     if (conflictData) {
-      renderCellDecoration(widget, widgets);
+      renderCellDecoration(widget, widgets, renderStyle);
     }
   }
   if (changes.key === 'access_control') {
@@ -177,30 +182,73 @@ const onCellsChange = (
     const metaData = changes.oldValues[0]?.metadata.get(
       'conflict_editing'
     ) as any;
+    //TODO: The deletion is not working well now
     if (metaData) {
-      // remove item
-      const versionItem = document.querySelector(
-        `#version-item-${metaData.id}`
+      // // remove item
+      // const versionItem = document.querySelector(
+      //   `#version-item-${metaData.id}`
+      // );
+      // if (versionItem) {
+      //   versionItem.parentNode?.removeChild(versionItem);
+      // }
+      // const isSelected = versionItem?.classList.contains('selected');
+      // const groupItem = document.querySelector(
+      //   `#cell-version-selection-tab-${metaData.parent}`
+      // );
+      const siblingCells = document.querySelectorAll(
+        `.cell-version-parallel-${metaData.id}`
       );
-      if (versionItem) {
-        versionItem.parentNode?.removeChild(versionItem);
-      }
-      const isSelected = versionItem?.classList.contains('selected');
-      const groupItem = document.querySelector(
-        `#cell-version-selection-tab-${metaData.parent}`
+
+      const siblingTabs = document.querySelectorAll(
+        `.cell-version-selection-tab-parent-${metaData.parent}`
       );
-      if (groupItem?.childNodes.length === 0) {
-        // no child node, remove this
-        groupItem.parentNode?.removeChild(groupItem);
-      } else if (isSelected) {
-        // switch select if the deleted cell is previously selected
-        const firstElement = groupItem?.children[0];
-        const id = firstElement?.id?.split('-').pop();
-        const nextCellTab = document.querySelector(`#version-item-${id}`);
-        nextCellTab?.classList.toggle('selected');
-        const nextCell = document.querySelector(`.cell-version-${id}`);
-        nextCell?.classList.toggle('selected');
+
+      // if this is the last cell in the group
+      if (siblingCells.length === 0 && siblingTabs.length > 0) {
+        console.log('only one!!');
+        // step one: make the next selected cell group available
+        const siblingParent = siblingTabs[0].parentNode as HTMLDivElement;
+        const classlists = [...siblingParent.classList];
+        const targetClass = classlists.filter(
+          str =>
+            str.includes('cell-version-parallel') && !str.includes('parent')
+        );
+        if (targetClass.length > 0) {
+          const nextID = targetClass[0].split('-').pop();
+          const hiddenCells = document.querySelectorAll(
+            `.cell-version-parallel-${nextID}`
+          );
+          hiddenCells.forEach(cell => {
+            (cell as HTMLDivElement).style.display = 'block';
+          });
+          console.log(nextID);
+        }
+
+        // step two: remove all the tabs
+        const tabElements = document.querySelectorAll(
+          `#version-item-${metaData.id}`
+        );
+        console.log(tabElements);
+        tabElements.forEach(ele => {
+          ele.parentNode?.removeChild(ele);
+        });
+
+        // const nextID = siblingTabs[0].classList
+        // siblingTabs[0].parentNode.style.display = 'block';
       }
+      // if (groupItem?.childNodes.length === 0) {
+      //   // no child node, remove this
+      //   groupItem.parentNode?.removeChild(groupItem);
+      // } else
+      // if (isSelected) {
+      //   // switch select if the deleted cell is previously selected
+      //   const firstElement = groupItem?.children[0];
+      //   const id = firstElement?.id?.split('-').pop();
+      //   const nextCellTab = document.querySelector(`#version-item-${id}`);
+      //   nextCellTab?.classList.toggle('selected');
+      //   const nextCell = document.querySelector(`.cell-version-${id}`);
+      //   nextCell?.classList.toggle('selected');
+      // }
     }
   }
 };
