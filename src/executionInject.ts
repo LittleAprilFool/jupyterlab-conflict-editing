@@ -1,5 +1,6 @@
-/* eslint-disable no-useless-escape */
 /* eslint-disable @typescript-eslint/explicit-module-boundary-types */
+import _ from 'lodash';
+
 import { NotebookActions } from '@jupyterlab/notebook';
 
 import { ISessionContext } from '@jupyterlab/apputils';
@@ -8,170 +9,14 @@ import { JSONObject } from '@lumino/coreutils';
 import { OutputArea } from '@jupyterlab/outputarea';
 
 import { Session } from '@jupyterlab/services';
-
-const multiCode = `
-## Now create a class
-
-class PrivateScope:
-    def __prerun__(self, __code, __scope):
-        if (__scope==None):
-            exec(__code)
-            result = eval("locals().keys()")
-        else:
-            exec(__code, __scope)
-            result = eval("locals().keys()", __scope)
-        return result
-    def __run__(self, __code, __scope):
-        if __scope==None:
-            exec(__code)
-        else:
-            exec(__code, __scope)
-    def __locals__(self):
-        return eval("locals().keys()")
-
-import sys
-from io import StringIO 
-
-class NullIO(StringIO):
-    def write(self, txt):
-       pass
-
-def rewriteCode(code, variables):
-    content = code + '\\n'
-    for variable in variables:
-        content +=f'self.{variable}={variable}\\n'
-    return content
-
-def getCleanList(lst):
-    return list(filter(lambda a: a[0]!='_' and a!='self', lst))
-
-import json
-
-def attrtoLocals(attrs, model):
-    content = '{'
-    if len(attrs) == 0:
-        return 'None'
-    else:
-        for attr in attrs:
-            content = content + f'"{attr}":{model}.{attr},'
-        content = content + f'"self":{model}'
-        content = content + '}'
-    return(content)
-
-from IPython.core.magic import (register_line_magic, register_cell_magic)
-@register_cell_magic
-def privateMulti(line, cell):
-    name=line.split(" ")[0]
-    variables=line.split(" ")[1:]
-    exec(f'__code = """{cell}"""', globals())
-    content = f"""
-if not "{name}" in locals():
-  {name} = PrivateScope()
-pre_attr = getCleanList(dir({name}))
-pre_locals = attrtoLocals(pre_attr, "{name}")
-"""
-    exec(content, globals())
-    content = f"""
-nb_stdout = sys.stdout
-sys.stdout = NullIO()
-exec('post_attrs = {name}.__prerun__(__code, {pre_locals})')
-sys.stdout = nb_stdout
-post_attrs = getCleanList(post_attrs)
-code_rewrite = rewriteCode(__code, post_attrs)
-exec('{name}.__run__(code_rewrite, {pre_locals})')
-"""
-    exec(content, globals())        
-`;
-const analyzeCode = `
-import ast
-from pprint import pprint
-
-def analyze(code):
-    tree = ast.parse(code)
-    analyzer = Analyzer()
-    analyzer.visit(tree)
-    # analyzer.report()
-
-
-class Analyzer(ast.NodeVisitor):
-    def __init__(self):
-        self.stats = {"variable": []}
-        
-    def visit_Name(self, node):
-        # self.stats["variable"].append(node.id)
-        self.generic_visit(node)
-    
-    def visit_Assign(self, node):
-        for target in node.targets:
-            if(type(target) == ast.Name):
-                self.stats["variable"].append(target.id)
-            if(type(target) == ast.Subscript):
-                self.stats["variable"].append(target.value.id)
-        self.generic_visit(node)
-        
-    def visit_Expr(self, node):
-        if(type(node.value)==ast.Call and type(node.value.func) == ast.Attribute):
-            self.stats["variable"].append(node.value.func.value.id)
-        self.generic_visit(node)
-
-    def report(self):
-        pprint(self.stats)
-`;
-
-const magicCode = `
-from IPython.core.magic import (register_line_magic, register_cell_magic)
-import copy
-import re
-
-@register_cell_magic
-def private(line, cell):
-  name=line.split(" ")[0]
-  variables=line.split(" ")[1:]
-
-  content = f'class {name}:\\n'
-  for variable in variables:
-    content +=f'\\t{variable}=copy.deepcopy({variable})\\n'
-  for line in cell.split('\\n'):
-    pattern=r'def .*\(.*\):'
-    match = re.search(pattern, line)
-    if(match):
-      l = line.split('(')
-      if(l[1][0]==')'):
-        newl = l[0] + '(self'+ "".join(l[1:])
-      else:
-        newl = l[0] + '(self,' + "".join(l[1:])
-      line = newl
-    content += f'\\t{line}\\n'
-  content += f'{name}={name}()'
-  exec(content, globals())
-
-@register_cell_magic
-def privateMain(line, cell):
-  name=line.split(" ")[0]
-  variables=line.split(" ")[1:]
-
-  content = f'class {name}:\\n'
-  for variable in variables:
-    content +=f'\\t{variable}=copy.deepcopy({variable})\\n'
-  for line in cell.split('\\n'):
-    pattern=r'def .*\(.*\):'
-    match = re.search(pattern, line)
-    if(match):
-      l = line.split('(')
-      if(l[1][0]==')'):
-        newl = l[0] + '(self'+ "".join(l[1:])
-      else:
-        newl = l[0] + '(self,' + "".join(l[1:])
-      line = newl
-    content += f'\\t{line}\\n'
-  content += f'{name}={name}()'
-  exec(content, globals())
-  for variable in variables:
-    exec(f'{variable} = {name}.{variable}', globals())
-`;
+import { variableScript } from './pscripts/variableScript';
+import { multiCodeScript } from './pscripts/multiCodeScript';
+import { codeAnalyzerScript } from './pscripts/codeAnalyzerScript';
+import { forkCellScript } from './pscripts/forkCellScript';
 
 export class ExecutionInject {
   private session: Session.ISessionConnection | null = null;
+  private blockedVariable: any[] = [];
   init(session: Session.ISessionConnection) {
     console.log('Init the ExecutionInject component', session);
     this.session = session;
@@ -262,6 +107,86 @@ export class ExecutionInject {
           }
           return promise;
         };
+      } else {
+        OutputArea.execute = async (
+          code: string,
+          output: OutputArea,
+          sessionContext: ISessionContext,
+          metadata?: JSONObject | undefined
+        ): Promise<IExecuteReplyMsg | undefined> => {
+          let promise;
+          try {
+            console.log(
+              'check if this user is allowed to change the value of the variable'
+            );
+            let flag = true;
+            let vname = null;
+            this.blockedVariable.forEach(variable => {
+              if (code.indexOf(variable.varName) >= 0) {
+                flag = false;
+                vname = variable.varName;
+              }
+            });
+            console.log(code, this.blockedVariable, flag);
+            if (flag) {
+              promise = executeFn(code, output, sessionContext, metadata);
+            } else {
+              alert("Can't edit the variable " + vname);
+              promise = executeFn('', output, sessionContext, metadata);
+            }
+          } finally {
+            OutputArea.execute = executeFn;
+          }
+          return promise;
+        };
+      }
+    });
+    NotebookActions.selectionExecuted.connect((_: any, output: any) => {
+      console.log('selection executed');
+      if (this.session?.kernel) {
+        const kernel = this.session.kernel;
+        const future = kernel?.requestExecute({
+          code: '_jupyterlab_variableinspector_dict_list()'
+        });
+        future.onIOPub = (msg: any): void => {
+          console.log(msg);
+          if (msg.msg_type === 'error') {
+            console.log(msg);
+          }
+          if (msg.msg_type === 'execute_result') {
+            console.log(msg.content.data['text/plain']);
+            let data = msg.content.data['text/plain'];
+            data = data.slice(1, data.length - 1);
+            data = data.split('\\').join('');
+            console.log(data);
+            const variable_inspec = JSON.parse(data);
+            console.log(variable_inspec);
+
+            const old_variable =
+              output.notebook.model.metadata.get('variable_inspec');
+            variable_inspec.forEach((variable: any, index: number) => {
+              const isOld = old_variable.filter(
+                (x: any) => x.varName === variable.varName
+              );
+              if (isOld.length > 0) {
+                variable_inspec[index].access = isOld[0].access;
+              } else {
+                variable_inspec[index].access = [];
+              }
+            });
+            console.log(
+              'before comparing variable inspec',
+              variable_inspec,
+              old_variable
+            );
+            if (!isSame(variable_inspec, old_variable)) {
+              output.notebook.model.metadata.set(
+                'variable_inspec',
+                variable_inspec
+              );
+            }
+          }
+        };
       }
     });
   }
@@ -277,7 +202,8 @@ export class ExecutionInject {
       console.log('Injecting cell magic');
       const kernel = this.session.kernel;
       const future = kernel?.requestExecute({
-        code: analyzeCode + magicCode + multiCode
+        code:
+          codeAnalyzerScript + forkCellScript + multiCodeScript + variableScript
       });
       future.onIOPub = (msg: any): void => {
         if (msg.msg_type === 'error') {
@@ -285,6 +211,10 @@ export class ExecutionInject {
         }
       };
     }
+  }
+
+  updateBlockedVariable(blockedVariable: any[]) {
+    this.blockedVariable = blockedVariable;
   }
 }
 
@@ -301,4 +231,13 @@ const parseGlobalVariable = (text: string) => {
   const result = JSON.parse(replaced);
   const unique = [...new Set(result)] as string[];
   return unique;
+};
+
+const isSame = (array1: any[], array2: any[]) => {
+  const is_same =
+    array1.length === array2.length &&
+    array1.every((element, index) => {
+      return _.isEqual(element, array2[index]);
+    });
+  return is_same;
 };

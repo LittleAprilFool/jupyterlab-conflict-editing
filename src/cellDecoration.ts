@@ -232,6 +232,7 @@ const createCurrentTab = (
   };
 
   currentTab.onclick = () => {
+    const metaData = cell.model.metadata.get('conflict_editing') as any;
     const siblingCells = document.querySelectorAll(
       `.cell-version-parallel-parent-${metaData.parent}`
     );

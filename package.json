@@ -46,10 +46,13 @@
   },
   "dependencies": {
     "@jupyterlab/application": "^3.1.0",
-    "@jupyterlab/notebook": "^3.2.9"
+    "@jupyterlab/notebook": "^3.2.9",
+    "lodash": "^4.17.21"
   },
   "devDependencies": {
     "@jupyterlab/builder": "^3.1.0",
+    "@types/codemirror": "^5.60.5",
+    "@types/lodash": "^4.14.182",
     "@typescript-eslint/eslint-plugin": "^4.8.1",
     "@typescript-eslint/parser": "^4.8.1",
     "eslint": "^7.14.0",

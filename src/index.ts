@@ -12,6 +12,7 @@ import { renderCellDecoration } from './cellDecoration';
 import { ForkButtonExtension } from './forkButton';
 import { Cell, ICellModel } from '@jupyterlab/cells';
 import { YNotebook } from '@jupyterlab/shared-models';
+import { CodeMirrorEditor } from '@jupyterlab/codemirror';
 // import { Awareness } from 'y-protocols/awareness';
 
 import { ExecutionInject } from './executionInject';
@@ -30,7 +31,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
   autoStart: true,
   requires: [INotebookTracker],
   activate: (app: JupyterFrontEnd, tracker: INotebookTracker) => {
-    console.log('JupyterLab extension conflict-editing is activated!!!2333');
+    console.log('JupyterLab extension conflict-editing is activated!!!23456');
     // change the cell insert, copy, delete behaviors
     const { originInsertBelow } = changeCellActions();
     app.docRegistry.addWidgetExtension(
@@ -60,9 +61,11 @@ const plugin: JupyterFrontEndPlugin<void> = {
         }
 
         // if the user restarts the kernel, execute the magic code again
-        notebookPanel.sessionContext.kernelChanged.connect(
-          executionInject.injectMagicCode.bind(executionInject)
-        );
+        notebookPanel.sessionContext.kernelChanged.connect((output: any) => {
+          executionInject.injectMagicCode(output);
+          collaborationWidget.updateNotebook(notebookPanel);
+          notebookPanel.model?.metadata.set('variable_inspec', []);
+        });
 
         // render cell decoration
         const widgets = tracker.currentWidget?.content?.widgets;
@@ -88,6 +91,26 @@ const plugin: JupyterFrontEndPlugin<void> = {
             changes?: IObservableList.IChangedArgs<ICellModel>
           ) => {
             onCellsChange(tracker, _cells, changes);
+          }
+        );
+
+        // listen to notebook meta changes
+        tracker.currentWidget?.content?.model?.metadata.changed.connect(
+          (metaData: IObservableJSON, changes?: any) => {
+            if (changes.key === 'variable_inspec') {
+              console.log('notebook meta change');
+              const variableData = metaData.get('variable_inspec') as any[];
+              collaborationWidget.updateInspectData(variableData);
+              if (variableData) {
+                const blockedVariables = variableData.filter(
+                  x => x.access.indexOf(thisUser) >= 0
+                );
+                executionInject.updateBlockedVariable(blockedVariables);
+                // highlight blocked variables in the code cells
+                updateVariableHighlights(tracker, blockedVariables);
+                console.log(blockedVariables);
+              }
+            }
           }
         );
 
@@ -124,6 +147,28 @@ const plugin: JupyterFrontEndPlugin<void> = {
       }
     });
   }
+};
+
+const updateVariableHighlights = (
+  tracker: INotebookTracker,
+  variables: any[]
+) => {
+  variables.forEach(variable => {
+    const widgets = tracker.currentWidget?.content?.widgets;
+    widgets?.forEach(widget => {
+      if (widget.editor instanceof CodeMirrorEditor) {
+        const cm = widget.editor.editor;
+        const cursor = cm.getSearchCursor(
+          new RegExp(`\\b${variable.varName}\\b`)
+        );
+        while (cursor.findNext()) {
+          cm.markText(cursor.from(), cursor.to(), {
+            className: 'restricted-variable-highlights'
+          });
+        }
+      }
+    });
+  });
 };
 
 const onCellMetaChange = (
