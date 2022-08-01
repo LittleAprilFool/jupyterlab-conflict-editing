@@ -27,7 +27,8 @@
 }
 
 .cell-version-selection-tab-container {
-  padding-bottom: 5px;
+  margin-bottom: 5px;
+  border-bottom: 1px solid lightgray;
 }
 
 .cell-version-parallel {
@@ -43,17 +44,32 @@
     background: whitesmoke;
     text-align: center;
     min-width: 80px;
-    padding: 5px;
+    padding: 5px 15px;
+    margin-right: 4px;
+    font-size:12px;
 }
 
 .cell-version-selection-tab-item.selected {
     background-color: lightgray;
 }
-
-
+.version-fork{
+  width: 15px;
+  min-width: 0px;
+  border: 1px solid lightgray;
+  position: absolute;
+  right: 0px;
+  padding: 5px;
+}
+.version-fork::after{
+  font-family: "Font Awesome 5 Free";
+  content: "\2b";
+  font-weight: 400;
+  font-size: 12px;
+  color: #aaaaaa;
+}
 .mainmark::after {
   font-family: "Font Awesome 5 Free";
-  content: "\f005";
+  content: "\f111";
   vertical-align: middle;
   font-weight: 400;
   font-size: 12px;
@@ -62,7 +78,7 @@
 
 .mainmark.ismain::after{
   font-family: "Font Awesome 5 Free";
-  content: "\f005";
+  content: "\f192";
   vertical-align: middle;
   font-weight: 900;
   font-size: 12px;
@@ -70,7 +86,7 @@
 }
 
 .mainmark {
-  margin-left: 4px;
+  margin-right: 5px;
 }
 
 .cell-version-selection-tab-item > div {
@@ -192,4 +208,29 @@
   position: absolute;
   left: 200px;
   top: 0px;
+}
+
+.indentation-btn {
+  height: 15px;
+  width: 15px;
+  background-color:#7b7b7b;
+  -webkit-mask-size: cover;
+  mask-size: cover;
+  position: absolute;
+  top: 12px;
+  left: 20px;
+}
+
+.indentation-do-btn{
+  -webkit-mask: url(./icons/indent-solid.svg) no-repeat 50% 50%;
+  mask: url(./icons/indent-solid.svg) no-repeat 50% 50%;
+}
+
+.indentation-cancel-btn{
+  -webkit-mask: url(./icons/delete-left-solid.svg) no-repeat 50% 50%;
+  mask: url(./icons/delete-left-solid.svg) no-repeat 50% 50%;
+}
+
+.cell-version > .jp-cell-toolbar {
+  display: none;
 }
