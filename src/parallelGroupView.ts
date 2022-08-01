@@ -13,6 +13,8 @@ export const renderCellDecoration = (
     cell.model.metadata.has('conflict_editing') &&
     !cell.hasClass('cell-version')
   ) {
+    const staledAccess = cell.node.querySelector('.cellaccess-overview');
+    staledAccess?.parentNode?.removeChild(staledAccess);
     const metaData = cell.model.metadata.get('conflict_editing') as any;
     // if this cell group is not the first element in the group
     const notFirstCell =

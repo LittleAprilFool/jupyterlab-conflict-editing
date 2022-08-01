@@ -12,7 +12,7 @@ import {
   renderUnindent,
   renderCellDecoration,
   renderParallelIndentationButton
-} from './cellDecoration';
+} from './parallelGroupView';
 import { ForkButtonExtension } from './forkButton';
 import { Cell, ICellModel } from '@jupyterlab/cells';
 import { YNotebook } from '@jupyterlab/shared-models';
@@ -24,12 +24,17 @@ import * as Icons from '@jupyterlab/ui-components';
 import { MainAreaWidget } from '@jupyterlab/apputils';
 import { changeCellActions } from './cellActions';
 import { syncCellDeletion, updateVariableHighlights } from './viewSync';
+import { renderCellAccessOverview } from './cellAccessView';
 
 // let NBTracker: INotebookTracker;
 const executionInject = new ExecutionInject();
 let thisUser = '';
+let userList: any[] = [];
 const collaborationWidget = new CollaborationWidget();
 export const { originInsertBelow } = changeCellActions();
+export const getUserList = (): any[] => {
+  return userList;
+};
 
 const plugin: JupyterFrontEndPlugin<void> = {
   id: 'conflict-editing:plugin',
@@ -92,6 +97,8 @@ const plugin: JupyterFrontEndPlugin<void> = {
           if (metaData) {
             renderCellDecoration(widget, widgets as Cell[], tracker);
           }
+
+          renderCellAccessOverview(widget);
         });
 
         // listen to cell changes
@@ -144,6 +151,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
               strings.push(state.user.name);
             }
           });
+          userList = strings;
           collaborationWidget.updateUserList(strings);
         });
       }
@@ -170,7 +178,6 @@ const onCellMetaChange = (
     console.log('cell meta changed!!', cmetaData, changes);
     const conflictData = cmetaData.get('conflict_editing') as any;
     if (conflictData) {
-      console.log('start render');
       renderCellDecoration(widget, widgets, tracker);
     } else {
       //remove cell decoration
@@ -178,6 +185,7 @@ const onCellMetaChange = (
         console.log('render unindent');
         renderUnindent(widget, changes.oldValue);
         widget.model.metadata.delete('conflict_editing');
+        renderCellAccessOverview(widget);
       }
     }
   }
@@ -186,19 +194,20 @@ const onCellMetaChange = (
     const accessData = changes.newValue;
     collaborationWidget.updateAccessData(accessData);
     if (accessData) {
-      if (accessData.edit.includes(thisUser)) {
+      if (accessData.edit && accessData.edit.includes(thisUser)) {
         widget.editor.setOption('readOnly', true);
         widget.addClass('colab-edit-lock');
       } else {
         widget.editor.setOption('readOnly', false);
         widget.removeClass('colab-edit-lock');
       }
-      if (accessData.read.includes(thisUser)) {
+      if (accessData.read && accessData.read.includes(thisUser)) {
         widget.addClass('colab-read-lock');
       } else {
         widget.removeClass('colab-read-lock');
       }
     }
+    renderCellAccessOverview(widget);
   }
 };
 
@@ -223,6 +232,7 @@ const onCellsChange = (
           );
         }
       );
+      renderCellAccessOverview(widget);
     }
   }
   if (changes?.type === 'remove') {

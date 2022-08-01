@@ -1,7 +1,7 @@
 import { INotebookTracker } from '@jupyterlab/notebook';
 import { CodeMirrorEditor } from '@jupyterlab/codemirror';
 
-import { createCurrentTab } from './cellDecoration';
+import { createCurrentTab } from './parallelGroupView';
 
 export const updateVariableHighlights = (
   tracker: INotebookTracker,
