@@ -1,5 +1,5 @@
 import { Notebook, NotebookActions } from '@jupyterlab/notebook';
-import { renderCellDecoration } from './cellDecoration';
+import { renderCellDecoration } from './parallelGroupView';
 export const changeCellActions = (): any => {
   console.log('change cell actions');
   return {

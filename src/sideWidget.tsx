@@ -53,25 +53,25 @@ const CollaborationComponent = ({
     }
   }, [cell]);
 
-  const changeAccess = (user: string, type: string): any => {
-    let access = {
-      edit: [] as string[],
-      read: [] as string[]
-    };
-    if (cell) {
-      if (access_meta) {
-        access = JSON.parse(JSON.stringify(access_meta));
-      }
+  // const changeAccess = (user: string, type: string): any => {
+  //   let access = {
+  //     edit: [] as string[],
+  //     read: [] as string[]
+  //   };
+  //   if (cell) {
+  //     if (access_meta) {
+  //       access = JSON.parse(JSON.stringify(access_meta));
+  //     }
 
-      if (type === 'Edit') {
-        access.edit = toggle(access.edit, user);
-      }
-      if (type === 'Read') {
-        access.read = toggle(access.read, user);
-      }
-    }
-    cell?.model.metadata.set('access_control', access);
-  };
+  //     if (type === 'Edit') {
+  //       access.edit = toggle(access.edit, user);
+  //     }
+  //     if (type === 'Read') {
+  //       access.read = toggle(access.read, user);
+  //     }
+  //   }
+  //   cell?.model.metadata.set('access_control', access);
+  // };
 
   const clickVariableAccess = (e: any): any => {
     const parentNode: HTMLDivElement = e.target.parentNode as HTMLDivElement;
@@ -114,7 +114,7 @@ const CollaborationComponent = ({
         </div>
       </div>
 
-      <div className="section-wrapper">
+      {/* <div className="section-wrapper">
         <div className="section-title">Can Edit the Cell</div>
         <div className="section-content">
           <div className="users">
@@ -162,7 +162,7 @@ const CollaborationComponent = ({
             })}
           </div>
         </div>
-      </div>
+      </div> */}
       <div className="section-wrapper">
         <div className="section-title">Variables</div>
         <div className="section-content">
