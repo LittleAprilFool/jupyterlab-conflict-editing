@@ -85,18 +85,12 @@ export class ExecutionInject {
             }
 
             if (variables.length > 0) {
-              if (ismain) {
-                code = `%%privateMain ${name} ${variables.join(' ')}\n${code}`;
-              } else {
-                // code = `%%private ${name} ${variables.join(' ')}\n${code}`;
+              if (!ismain) {
                 code = `%%privateMulti ${name} \n${code}`;
               }
             } else {
               // change the code cell value
-              if (ismain) {
-                code = `%%privateMain ${name}\n${code}`;
-              } else {
-                // code = `%%private ${name}\n${code}`;
+              if (!ismain) {
                 code = `%%privateMulti ${name}\n${code}`;
               }
             }

@@ -5,15 +5,17 @@ import { DocumentRegistry } from '@jupyterlab/docregistry';
 import {
   NotebookActions,
   NotebookPanel,
-  INotebookModel
+  INotebookModel,
+  INotebookTracker
 } from '@jupyterlab/notebook';
 
 import { Cell } from '@jupyterlab/cells';
 
 import { IDisposable, DisposableDelegate } from '@lumino/disposable';
 import { random } from './utils';
+import { originInsertBelow } from '.';
 
-interface IMetaDataType {
+export interface IMetaDataType {
   id: string;
   parent: string;
   name: string;
@@ -72,10 +74,47 @@ export class ForkButtonExtension
     });
   }
 }
-const addMetaData = (cell: Cell, parent_cell?: Cell) => {
+export const onForkHandler = (id: string, tracker: INotebookTracker) => {
+  let lastCell = tracker.activeCell;
+  console.log(tracker.currentWidget);
+  tracker.currentWidget?.content.widgets.forEach(cell => {
+    const md = cell.model.metadata.get('conflict_editing') as any;
+    if (md && md.parent === id) {
+      console.log(cell.node);
+      lastCell = cell;
+    }
+  });
+  if (lastCell) {
+    lastCell.editor.focus();
+  }
+  // console.log(lastCell?.node);
+
+  if (tracker.currentWidget?.content) {
+    NotebookActions.selectBelow(tracker.currentWidget?.content);
+    NotebookActions.selectBelow(tracker.currentWidget?.content);
+    console.log(tracker.activeCell?.node);
+    originInsertBelow(tracker.currentWidget?.content);
+    const newCell = tracker.activeCell;
+    const nid = random(4);
+    let username = document.cookie
+      .split('; ')
+      ?.find(row => row.startsWith('hub_user='))
+      ?.split('=')[1];
+    username = username?.replace(/\s+/g, '');
+    const newMeta: IMetaDataType = {
+      id: nid,
+      parent: id,
+      name: username + '_' + nid,
+      ismain: false
+    };
+    newCell?.model.metadata.set('conflict_editing', newMeta as any);
+  }
+};
+
+export const addMetaData = (cell: Cell, parent_cell?: Cell) => {
   if (!cell.model.metadata.has('conflict_editing')) {
     const id = random(4);
-    let parent_id = id;
+    let parent_id = random(4);
     const ismain = false;
     if (parent_cell) {
       const parent_meta = parent_cell.model.metadata.get('conflict_editing');
@@ -83,10 +122,17 @@ const addMetaData = (cell: Cell, parent_cell?: Cell) => {
         parent_id = (parent_meta as any as IMetaDataType).parent;
       }
     }
+    let username = document.cookie
+      .split('; ')
+      ?.find(row => row.startsWith('hub_user='))
+      ?.split('=')[1];
+
+    username = username?.replace(/\s+/g, '');
+
     const metaData: IMetaDataType = {
       id,
       parent: parent_id,
-      name: id,
+      name: username + '_' + id,
       ismain
     };
     cell.model.metadata.set('conflict_editing', metaData as any);

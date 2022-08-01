@@ -1,78 +1,30 @@
-import { generateColor } from './utils';
 import { Cell } from '@jupyterlab/cells';
+import { INotebookTracker } from '@jupyterlab/notebook';
+import { addMetaData, IMetaDataType, onForkHandler } from './forkButton';
 // unfold; fold; side-by-side
 
 export const renderCellDecoration = (
   cell: Cell,
   cells: Cell[],
-  renderStyle: string
+  tracker?: INotebookTracker
 ): void => {
-  if (renderStyle === 'fold') {
-    renderFold(cell, cells);
-  } else {
-    renderUnfold(cell);
-  }
-};
-
-const renderUnfold = (cell: Cell) => {
-  if (
-    cell.model.metadata.has('conflict_editing') &&
-    !cell.hasClass('cell-version')
-  ) {
-    console.log('render unfold');
-    cell.addClass('cell-version');
-    const versionInfoNode = document.createElement('div');
-    versionInfoNode.classList.add('version-info-container');
-
-    const versionInfoLabel = document.createElement('div');
-    const versionInfoEditor = document.createElement('div');
-    const versionInfoEditorInput = document.createElement('input');
-    const versionInfoEditorButton = document.createElement('button');
-    versionInfoEditor.classList.add('hide');
-    versionInfoEditorButton.innerText = 'Save';
-    const metaData = cell.model.metadata.get('conflict_editing') as any;
-    versionInfoLabel.innerText = metaData.name;
-    versionInfoEditorInput.value = metaData.name;
-    versionInfoNode.id = `version-item-${metaData.id}`;
-    versionInfoNode.innerText = 'version ';
-    versionInfoEditor.appendChild(versionInfoEditorInput);
-    versionInfoEditor.appendChild(versionInfoEditorButton);
-    versionInfoNode.appendChild(versionInfoEditor);
-    versionInfoNode.appendChild(versionInfoLabel);
-    cell.node.prepend(versionInfoNode);
-    versionInfoNode.style.backgroundColor = generateColor(metaData.parent);
-
-    versionInfoLabel.ondblclick = () => {
-      versionInfoLabel.classList.toggle('hide');
-      versionInfoEditor.classList.toggle('hide');
-    };
-
-    versionInfoEditorButton.onclick = () => {
-      const name = versionInfoEditorInput.value;
-      const newMeta = { ...metaData };
-      newMeta.name = name;
-      cell.model.metadata.set('conflict_editing', newMeta as any);
-      versionInfoLabel.innerText = name;
-      versionInfoLabel.classList.toggle('hide');
-      versionInfoEditor.classList.toggle('hide');
-    };
-  }
-};
-
-const renderFold = (cell: Cell, cells: Cell[]) => {
+  // if this cell is not rendered
   if (
     cell.model.metadata.has('conflict_editing') &&
     !cell.hasClass('cell-version')
   ) {
     const metaData = cell.model.metadata.get('conflict_editing') as any;
-    const isFollowing =
+    // if this cell group is not the first element in the group
+    const notFirstCell =
       document.querySelector(`.cell-version-parallel-${metaData.id}`) !== null;
 
     cell.addClass('cell-version');
     cell.addClass(`cell-version-parallel-${metaData.id}`);
     cell.addClass(`cell-version-parallel-parent-${metaData.parent}`);
 
-    if (isFollowing) {
+    // if this cell group is not the first element in the group, we don't need to render the tabs
+    if (notFirstCell) {
+      // we decide to hide the cell or not depending on whether the group is selected
       const siblingTabs = document.querySelectorAll(
         `.cell-version-selection-tab-parent-${metaData.parent}`
       );
@@ -90,15 +42,19 @@ const renderFold = (cell: Cell, cells: Cell[]) => {
       return;
     }
 
+    // if this cell group is the first element in the group, we need to create selectionTabs
     let selectionTab = document.createElement('div') as any;
 
-    // check if there is a parent selection tab
+    // check if there is a parent selection tab created for other groups in the same family
     const parentSelectionTab = document.querySelector(
-      `#cell-version-selection-tab-${metaData.parent}`
+      `.cell-version-selection-tab-parent-${metaData.parent}`
     );
+
+    // if so, we need to clone the node
     if (parentSelectionTab) {
       cell.node.style.display = 'none';
       selectionTab = parentSelectionTab.cloneNode(true);
+      selectionTab.id = `cell-version-selection-tab-${metaData.id}`;
       for (let i = 0; i < selectionTab.childNodes.length; i++) {
         const mirrorNode = parentSelectionTab.childNodes[i] as HTMLDivElement;
         selectionTab.childNodes[i].onclick = mirrorNode.onclick;
@@ -122,14 +78,40 @@ const renderFold = (cell: Cell, cells: Cell[]) => {
         newTab.onclick = currentTabNonSelected.onclick;
         ele.appendChild(newTab);
       });
+
+      // check if this is the primary group
+      if (metaData.ismain) {
+        const otherCells = document.querySelectorAll(
+          `.cell-version-parallel-parent-${metaData.parent}`
+        );
+        otherCells.forEach(cell => {
+          if (
+            !cell.className.includes(`.cell-version-parallel-${metaData.id}`)
+          ) {
+            (cell as HTMLDivElement).style.display = 'none';
+          }
+        });
+        cell.node.style.display = 'block';
+      }
     } else {
-      // if this is the parent node
+      // if this is the first selection tab
       // create a new tab
       selectionTab.id = `cell-version-selection-tab-${metaData.id}`;
       selectionTab.classList.add('cell-version-selection-tab-container');
       selectionTab.classList.add(
         `cell-version-selection-tab-parent-${metaData.parent}`
       );
+      const forkButton = document.createElement('div');
+      forkButton.classList.add('cell-version-selection-tab-item');
+      forkButton.classList.add('version-fork');
+      forkButton.id = `version-fork-${metaData.parent}`;
+      selectionTab.appendChild(forkButton);
+      forkButton.onclick = e => {
+        const parent_id = (e.target as HTMLElement).id.split('-')[2];
+        if (tracker) {
+          onForkHandler(parent_id, tracker);
+        }
+      };
       const currentTab = createCurrentTab(metaData, cell, cells, selectionTab);
       currentTab.classList.add('selected');
       selectionTab?.appendChild(currentTab);
@@ -159,12 +141,12 @@ const renderFold = (cell: Cell, cells: Cell[]) => {
   }
 };
 
-const createCurrentTab = (
+export const createCurrentTab = (
   metaData: any,
   cell: Cell,
   cells: Cell[],
   selectionTab: HTMLDivElement
-) => {
+): HTMLDivElement => {
   const currentTab = document.createElement('div');
   currentTab.classList.add('cell-version-selection-tab-item');
   currentTab.id = `version-item-${metaData.id}`;
@@ -183,9 +165,9 @@ const createCurrentTab = (
   if (metaData.ismain) {
     mainMark.classList.add('ismain');
   }
+  currentTab.appendChild(mainMark);
   currentTab.appendChild(versionInfoEditor);
   currentTab.appendChild(versionInfoLabel);
-  currentTab.appendChild(mainMark);
 
   versionInfoLabel.ondblclick = () => {
     versionInfoLabel.classList.toggle('hide');
@@ -194,6 +176,7 @@ const createCurrentTab = (
 
   mainMark.onclick = () => {
     const metaData = cell.model.metadata.get('conflict_editing') as any;
+    const newMeta = { ...metaData };
     if (!mainMark.classList.contains('ismain')) {
       const currentMain = selectionTab?.querySelector('.ismain');
       // currentMain?.classList.toggle('ismain');
@@ -210,14 +193,17 @@ const createCurrentTab = (
         }
       });
       // change the metadata of the new main
-      const newMeta = { ...metaData };
       newMeta.ismain = true;
-      cell.model.metadata.set('conflict_editing', newMeta as any);
     } else {
-      const newMeta = { ...metaData };
       newMeta.ismain = false;
-      cell.model.metadata.set('conflict_editing', newMeta as any);
     }
+    cells.forEach(cell => {
+      const cmeta = cell.model.metadata.get('conflict_editing') as any;
+      if (cmeta && cmeta.id === metaData.id) {
+        // change all the cells in the group, instead of the first one
+        cell.model.metadata.set('conflict_editing', newMeta as any);
+      }
+    });
   };
 
   versionInfoEditorButton.onclick = () => {
@@ -231,16 +217,24 @@ const createCurrentTab = (
     versionInfoEditor.classList.toggle('hide');
   };
 
-  currentTab.onclick = () => {
-    const metaData = cell.model.metadata.get('conflict_editing') as any;
+  currentTab.onclick = (e: any) => {
+    const group_id = e.target.parentNode.id.split('-')[2];
+    let parent_id = '';
+    e.target.parentNode.parentNode.classList.forEach((name: string) => {
+      if (name.includes('parent')) {
+        parent_id = name.split('-')[5];
+      }
+    });
+    // const parent_id = e.target.parentNode.parentNode.classList;
+    // const metaData = cell.model.metadata.get('conflict_editing') as any;
     const siblingCells = document.querySelectorAll(
-      `.cell-version-parallel-parent-${metaData.parent}`
+      `.cell-version-parallel-parent-${parent_id}`
     );
     siblingCells.forEach((ele: any): void => {
       ele.style.display = 'none';
     });
     const targetCells = document.querySelectorAll(
-      `.cell-version-parallel-${metaData.id}`
+      `.cell-version-parallel-${group_id}`
     );
     targetCells.forEach(targetCell => {
       const targetCellModel = targetCell as HTMLDivElement;
@@ -248,4 +242,122 @@ const createCurrentTab = (
     });
   };
   return currentTab;
+};
+
+export const renderParallelIndentationButton = (
+  cell: Cell,
+  tracker: INotebookTracker
+): void => {
+  // clean all the indentation button first
+  const staledButtons = document.querySelectorAll('.indentation-btn');
+  staledButtons?.forEach(button => {
+    button.parentNode?.removeChild(button);
+  });
+
+  // insert new indentation button into the cell
+  const indentationNode = document.createElement('div');
+  indentationNode.classList.add('indentation-btn');
+  const metadata = cell.model.metadata.get('conflict_editing');
+  // check if this cell is a normal cell or belong to a parallel group
+  if (!metadata) {
+    // if this is a normal cell, add an indentation button
+    cell.node.appendChild(indentationNode);
+    indentationNode.classList.add('indentation-do-btn');
+    indentationNode.addEventListener('click', () => {
+      addMetaData(cell);
+      indentationNode.parentNode?.removeChild(indentationNode);
+    });
+  } else {
+    const id = (metadata as any as IMetaDataType).id;
+    // add the indentation button into the first cell in the group
+    const firstCell = cell.node.parentNode?.querySelector(
+      `.cell-version-parallel-${id}`
+    );
+
+    if (firstCell) {
+      firstCell.appendChild(indentationNode);
+    }
+    indentationNode.classList.add('indentation-cancel-btn');
+    indentationNode.addEventListener('click', () => {
+      // this will unindent the parallel cell group
+      unindentParallelGroup(id, tracker);
+      indentationNode.parentNode?.removeChild(indentationNode);
+    });
+  }
+};
+
+const unindentParallelGroup = (
+  tid: string,
+  tracker: INotebookTracker
+): void => {
+  if (tracker.currentWidget?.content?.widgets) {
+    const widgets = tracker.currentWidget?.content?.widgets as Cell[];
+    widgets?.forEach(cell => {
+      if (cell.model.metadata.has('conflict_editing')) {
+        const metadata = cell.model.metadata.get('conflict_editing');
+        const id = (metadata as any as IMetaDataType).id;
+        if (id === tid) {
+          cell.model.metadata.set('conflict_editing', null);
+        }
+      }
+    });
+  }
+};
+
+export const renderUnindent = (widget: Cell, meta: IMetaDataType): void => {
+  // check if this group belongs to a family
+  const thisTab = document.querySelector(
+    `#cell-version-selection-tab-${meta.id}`
+  );
+  const siblingTabs = document.querySelectorAll(
+    `.cell-version-selection-tab-parent-${meta.parent}`
+  );
+
+  if (siblingTabs.length > 1) {
+    // first, make all the cells in the current group visible (might be hidden on collaborator's side)
+    const cells = document.querySelectorAll(
+      `.cell-version-parallel-${meta.id}`
+    );
+    cells.forEach(cell => {
+      (cell as HTMLElement).style.display = 'block';
+    });
+
+    // next, remove the group_id tabs
+    const tab_items = document.querySelectorAll(`#version-item-${meta.id}`);
+    tab_items.forEach(item => item.parentNode?.removeChild(item));
+
+    // next, make the first new group visible
+    const siblingIDs: any[] = [];
+    thisTab?.childNodes.forEach(node => {
+      if (
+        !(node as HTMLElement).classList.contains('selected') &&
+        !(node as HTMLElement).classList.contains('version-fork')
+      ) {
+        const id = (node as HTMLElement).id.split('-')[2];
+        if (id !== meta.id) {
+          siblingIDs.push(id);
+        }
+      }
+    });
+
+    const siblingCells = document.querySelectorAll(
+      `.cell-version-parallel-${siblingIDs[0]}`
+    );
+    siblingCells.forEach(cell => {
+      (cell as HTMLElement).style.display = 'block';
+    });
+  }
+
+  // remove the decoration on the current cell
+  widget.node.className = widget.node.className.replaceAll(
+    /cell-version[^ ]*/g,
+    ''
+  );
+  // thisTab?.parentNode?.removeChild(thisTab);
+  const tabs = widget.node.querySelectorAll(
+    '.cell-version-selection-tab-container'
+  );
+  tabs.forEach(tab => {
+    tab.parentNode?.removeChild(tab);
+  });
 };

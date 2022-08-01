@@ -14,6 +14,7 @@
     "preserveWatchOutput": true,
     "resolveJsonModule": true,
     "outDir": "lib",
+    "lib":["esnext", "DOM", "dom.iterable"],
     "rootDir": "src",
     "strict": true,
     "strictNullChecks": true,

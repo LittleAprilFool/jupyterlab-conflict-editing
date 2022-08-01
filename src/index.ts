@@ -8,11 +8,14 @@ import {
   IObservableUndoableList,
   IObservableJSON
 } from '@jupyterlab/observables';
-import { renderCellDecoration } from './cellDecoration';
+import {
+  renderUnindent,
+  renderCellDecoration,
+  renderParallelIndentationButton
+} from './cellDecoration';
 import { ForkButtonExtension } from './forkButton';
 import { Cell, ICellModel } from '@jupyterlab/cells';
 import { YNotebook } from '@jupyterlab/shared-models';
-import { CodeMirrorEditor } from '@jupyterlab/codemirror';
 // import { Awareness } from 'y-protocols/awareness';
 
 import { ExecutionInject } from './executionInject';
@@ -20,12 +23,14 @@ import { CollaborationWidget } from './sideWidget';
 import * as Icons from '@jupyterlab/ui-components';
 import { MainAreaWidget } from '@jupyterlab/apputils';
 import { changeCellActions } from './cellActions';
+import { syncCellDeletion, updateVariableHighlights } from './viewSync';
 
 // let NBTracker: INotebookTracker;
 const executionInject = new ExecutionInject();
 let thisUser = '';
-const renderStyle = 'fold';
 const collaborationWidget = new CollaborationWidget();
+export const { originInsertBelow } = changeCellActions();
+
 const plugin: JupyterFrontEndPlugin<void> = {
   id: 'conflict-editing:plugin',
   autoStart: true,
@@ -33,7 +38,6 @@ const plugin: JupyterFrontEndPlugin<void> = {
   activate: (app: JupyterFrontEnd, tracker: INotebookTracker) => {
     console.log('JupyterLab extension conflict-editing is activated!!!23456');
     // change the cell insert, copy, delete behaviors
-    const { originInsertBelow } = changeCellActions();
     app.docRegistry.addWidgetExtension(
       'Notebook',
       new ForkButtonExtension(originInsertBelow)
@@ -73,14 +77,20 @@ const plugin: JupyterFrontEndPlugin<void> = {
           // attach meta change callback to code cell
           widget.model.metadata.changed.connect(
             (metaData: IObservableJSON, changes?: any) => {
-              onCellMetaChange(metaData, widget, widgets as Cell[], changes);
+              onCellMetaChange(
+                metaData,
+                widget,
+                widgets as Cell[],
+                changes,
+                tracker
+              );
             }
           );
           // render existing versions
           const metaData = widget.model.metadata.get('conflict_editing') as any;
           // TODO: sometimes the cell decoration is not rendered when refreshing the page; no metadata is read from the model; close and reopen notebook would fix;
           if (metaData) {
-            renderCellDecoration(widget, widgets as Cell[], renderStyle);
+            renderCellDecoration(widget, widgets as Cell[], tracker);
           }
         });
 
@@ -98,7 +108,6 @@ const plugin: JupyterFrontEndPlugin<void> = {
         tracker.currentWidget?.content?.model?.metadata.changed.connect(
           (metaData: IObservableJSON, changes?: any) => {
             if (changes.key === 'variable_inspec') {
-              console.log('notebook meta change');
               const variableData = metaData.get('variable_inspec') as any[];
               collaborationWidget.updateInspectData(variableData);
               if (variableData) {
@@ -108,7 +117,6 @@ const plugin: JupyterFrontEndPlugin<void> = {
                 executionInject.updateBlockedVariable(blockedVariables);
                 // highlight blocked variables in the code cells
                 updateVariableHighlights(tracker, blockedVariables);
-                console.log(blockedVariables);
               }
             }
           }
@@ -144,45 +152,33 @@ const plugin: JupyterFrontEndPlugin<void> = {
     tracker.activeCellChanged.connect((_, cell: Cell | null) => {
       if (cell) {
         collaborationWidget.updateCellSelection(cell);
+        renderParallelIndentationButton(cell, tracker);
       }
     });
   }
-};
-
-const updateVariableHighlights = (
-  tracker: INotebookTracker,
-  variables: any[]
-) => {
-  variables.forEach(variable => {
-    const widgets = tracker.currentWidget?.content?.widgets;
-    widgets?.forEach(widget => {
-      if (widget.editor instanceof CodeMirrorEditor) {
-        const cm = widget.editor.editor;
-        const cursor = cm.getSearchCursor(
-          new RegExp(`\\b${variable.varName}\\b`)
-        );
-        while (cursor.findNext()) {
-          cm.markText(cursor.from(), cursor.to(), {
-            className: 'restricted-variable-highlights'
-          });
-        }
-      }
-    });
-  });
 };
 
 const onCellMetaChange = (
   cmetaData: IObservableJSON,
   widget: Cell,
   widgets: Cell[],
-  changes: any
-) => {
+  changes: any,
+  tracker: INotebookTracker
+): void => {
   console.log('cell meta change');
   if (changes.key === 'conflict_editing') {
     console.log('cell meta changed!!', cmetaData, changes);
     const conflictData = cmetaData.get('conflict_editing') as any;
     if (conflictData) {
-      renderCellDecoration(widget, widgets, renderStyle);
+      console.log('start render');
+      renderCellDecoration(widget, widgets, tracker);
+    } else {
+      //remove cell decoration
+      if (changes.type === 'change') {
+        console.log('render unindent');
+        renderUnindent(widget, changes.oldValue);
+        widget.model.metadata.delete('conflict_editing');
+      }
     }
   }
   if (changes.key === 'access_control') {
@@ -210,15 +206,21 @@ const onCellsChange = (
   tracker: INotebookTracker,
   _cells?: IObservableUndoableList<ICellModel>,
   changes?: IObservableList.IChangedArgs<ICellModel>
-) => {
-  console.log('on cells change');
+): void => {
+  console.log('on cells change', changes);
   if (changes?.type === 'add') {
     const widgets = tracker.currentWidget?.content.widgets;
     if (widgets && widgets.length > 0) {
       const widget = widgets[changes.newIndex];
       widget.model.metadata.changed.connect(
         (metaData: IObservableJSON, changes) => {
-          onCellMetaChange(metaData, widget, widgets as Cell[], changes);
+          onCellMetaChange(
+            metaData,
+            widget,
+            widgets as Cell[],
+            changes,
+            tracker
+          );
         }
       );
     }
@@ -227,73 +229,8 @@ const onCellsChange = (
     const metaData = changes.oldValues[0]?.metadata.get(
       'conflict_editing'
     ) as any;
-    //TODO: The deletion is not working well now
     if (metaData) {
-      // // remove item
-      // const versionItem = document.querySelector(
-      //   `#version-item-${metaData.id}`
-      // );
-      // if (versionItem) {
-      //   versionItem.parentNode?.removeChild(versionItem);
-      // }
-      // const isSelected = versionItem?.classList.contains('selected');
-      // const groupItem = document.querySelector(
-      //   `#cell-version-selection-tab-${metaData.parent}`
-      // );
-      const siblingCells = document.querySelectorAll(
-        `.cell-version-parallel-${metaData.id}`
-      );
-
-      const siblingTabs = document.querySelectorAll(
-        `.cell-version-selection-tab-parent-${metaData.parent}`
-      );
-
-      // if this is the last cell in the group
-      if (siblingCells.length === 0 && siblingTabs.length > 0) {
-        console.log('only one!!');
-        // step one: make the next selected cell group available
-        const siblingParent = siblingTabs[0].parentNode as HTMLDivElement;
-        const classlists = [...siblingParent.classList];
-        const targetClass = classlists.filter(
-          str =>
-            str.includes('cell-version-parallel') && !str.includes('parent')
-        );
-        if (targetClass.length > 0) {
-          const nextID = targetClass[0].split('-').pop();
-          const hiddenCells = document.querySelectorAll(
-            `.cell-version-parallel-${nextID}`
-          );
-          hiddenCells.forEach(cell => {
-            (cell as HTMLDivElement).style.display = 'block';
-          });
-          console.log(nextID);
-        }
-
-        // step two: remove all the tabs
-        const tabElements = document.querySelectorAll(
-          `#version-item-${metaData.id}`
-        );
-        console.log(tabElements);
-        tabElements.forEach(ele => {
-          ele.parentNode?.removeChild(ele);
-        });
-
-        // const nextID = siblingTabs[0].classList
-        // siblingTabs[0].parentNode.style.display = 'block';
-      }
-      // if (groupItem?.childNodes.length === 0) {
-      //   // no child node, remove this
-      //   groupItem.parentNode?.removeChild(groupItem);
-      // } else
-      // if (isSelected) {
-      //   // switch select if the deleted cell is previously selected
-      //   const firstElement = groupItem?.children[0];
-      //   const id = firstElement?.id?.split('-').pop();
-      //   const nextCellTab = document.querySelector(`#version-item-${id}`);
-      //   nextCellTab?.classList.toggle('selected');
-      //   const nextCell = document.querySelector(`.cell-version-${id}`);
-      //   nextCell?.classList.toggle('selected');
-      // }
+      syncCellDeletion(metaData, tracker);
     }
   }
 };
