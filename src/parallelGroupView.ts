@@ -1,6 +1,8 @@
 import { Cell } from '@jupyterlab/cells';
-import { INotebookTracker } from '@jupyterlab/notebook';
+import { INotebookTracker, NotebookActions } from '@jupyterlab/notebook';
 import { addMetaData, IMetaDataType, onForkHandler } from './forkButton';
+import { originInsertAbove } from '.';
+import { showDialog, Dialog } from '@jupyterlab/apputils';
 // unfold; fold; side-by-side
 
 export const renderCellDecoration = (
@@ -181,8 +183,6 @@ export const createCurrentTab = (
     const newMeta = { ...metaData };
     if (!mainMark.classList.contains('ismain')) {
       const currentMain = selectionTab?.querySelector('.ismain');
-      // currentMain?.classList.toggle('ismain');
-      // mainMark.classList.toggle('ismain');
 
       // change the metadata of the old main
       const oldMainID = currentMain?.parentElement?.id.slice(-4);
@@ -227,8 +227,6 @@ export const createCurrentTab = (
         parent_id = name.split('-')[5];
       }
     });
-    // const parent_id = e.target.parentNode.parentNode.classList;
-    // const metaData = cell.model.metadata.get('conflict_editing') as any;
     const siblingCells = document.querySelectorAll(
       `.cell-version-parallel-parent-${parent_id}`
     );
@@ -283,8 +281,20 @@ export const renderParallelIndentationButton = (
     indentationNode.classList.add('indentation-cancel-btn');
     indentationNode.addEventListener('click', () => {
       // this will unindent the parallel cell group
-      unindentParallelGroup(id, group_id, tracker);
-      indentationNode.parentNode?.removeChild(indentationNode);
+      // show a dialog for users to confirm
+      showDialog({
+        title: 'Delete Other Parallel Cell Groups',
+        body: 'Unindent the current parallel cell group would delete other alternative cell groups. Do you want to continue?',
+        buttons: [
+          Dialog.cancelButton(),
+          Dialog.okButton({ label: 'GO', className: 'TDB-Prompt-Dialog__btn' })
+        ]
+      }).then(res => {
+        if (res.button.label === 'GO') {
+          unindentParallelGroup(id, group_id, tracker);
+          indentationNode.parentNode?.removeChild(indentationNode);
+        }
+      });
     });
   }
 };
@@ -297,7 +307,7 @@ const unindentParallelGroup = (
   if (tracker.currentWidget?.content?.widgets) {
     const widgets = tracker.currentWidget?.content?.widgets as Cell[];
     const notebook = tracker.currentWidget.content;
-    const unindentedCells: Cell[] = [];
+    const unindentedCellValues: any[] = [];
     const deletedCells: Cell[] = [];
     widgets?.forEach(cell => {
       if (cell.model.metadata.has('conflict_editing')) {
@@ -305,29 +315,27 @@ const unindentParallelGroup = (
         const id = (metadata as any as IMetaDataType).id;
         const group = (metadata as any as IMetaDataType).parent;
         if (id === tid) {
-          unindentedCells.push(cell);
-        } else {
-          if (group === gid) {
-            deletedCells.push(cell);
-          }
+          unindentedCellValues.push(cell.model.value);
+        }
+        if (group === gid) {
+          deletedCells.push(cell);
         }
       }
     });
 
-    // notebook.deselectAll();
-    // deletedCells.forEach(cell => {
-    //   notebook.select(cell);
-    // });
-
-    // unindentedCells.forEach(cell => {
-    //   notebook.deselect(cell);
-    // });
     notebook.deselectAll();
-    // unindentedCells[0].activate();
-    // NotebookActions.deleteCells(notebook);
+    deletedCells.forEach(cell => {
+      notebook.select(cell);
+    });
 
-    unindentedCells.forEach(cell => {
-      cell.model.metadata.set('conflict_editing', null);
+    NotebookActions.deleteCells(notebook);
+    unindentedCellValues.forEach((item, index) => {
+      originInsertAbove(notebook);
+      const activeCell = notebook.activeCell;
+      if (activeCell) {
+        activeCell.model.value.text =
+          unindentedCellValues[unindentedCellValues.length - index - 1].text;
+      }
     });
   }
 };

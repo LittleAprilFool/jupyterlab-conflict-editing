@@ -31,7 +31,7 @@ const executionInject = new ExecutionInject();
 let thisUser = '';
 let userList: any[] = [];
 const collaborationWidget = new CollaborationWidget();
-export const { originInsertBelow } = changeCellActions();
+export const { originInsertBelow, originInsertAbove } = changeCellActions();
 export const getUserList = (): any[] => {
   return userList;
 };
