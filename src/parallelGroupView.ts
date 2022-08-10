@@ -271,6 +271,7 @@ export const renderParallelIndentationButton = (
     });
   } else {
     const id = (metadata as any as IMetaDataType).id;
+    const group_id = (metadata as any as IMetaDataType).parent;
     // add the indentation button into the first cell in the group
     const firstCell = cell.node.parentNode?.querySelector(
       `.cell-version-parallel-${id}`
@@ -282,7 +283,7 @@ export const renderParallelIndentationButton = (
     indentationNode.classList.add('indentation-cancel-btn');
     indentationNode.addEventListener('click', () => {
       // this will unindent the parallel cell group
-      unindentParallelGroup(id, tracker);
+      unindentParallelGroup(id, group_id, tracker);
       indentationNode.parentNode?.removeChild(indentationNode);
     });
   }
@@ -290,18 +291,43 @@ export const renderParallelIndentationButton = (
 
 const unindentParallelGroup = (
   tid: string,
+  gid: string,
   tracker: INotebookTracker
 ): void => {
   if (tracker.currentWidget?.content?.widgets) {
     const widgets = tracker.currentWidget?.content?.widgets as Cell[];
+    const notebook = tracker.currentWidget.content;
+    const unindentedCells: Cell[] = [];
+    const deletedCells: Cell[] = [];
     widgets?.forEach(cell => {
       if (cell.model.metadata.has('conflict_editing')) {
         const metadata = cell.model.metadata.get('conflict_editing');
         const id = (metadata as any as IMetaDataType).id;
+        const group = (metadata as any as IMetaDataType).parent;
         if (id === tid) {
-          cell.model.metadata.set('conflict_editing', null);
+          unindentedCells.push(cell);
+        } else {
+          if (group === gid) {
+            deletedCells.push(cell);
+          }
         }
       }
+    });
+
+    // notebook.deselectAll();
+    // deletedCells.forEach(cell => {
+    //   notebook.select(cell);
+    // });
+
+    // unindentedCells.forEach(cell => {
+    //   notebook.deselect(cell);
+    // });
+    notebook.deselectAll();
+    // unindentedCells[0].activate();
+    // NotebookActions.deleteCells(notebook);
+
+    unindentedCells.forEach(cell => {
+      cell.model.metadata.set('conflict_editing', null);
     });
   }
 };

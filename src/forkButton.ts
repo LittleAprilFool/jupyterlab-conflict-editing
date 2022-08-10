@@ -76,7 +76,6 @@ export class ForkButtonExtension
 }
 export const onForkHandler = (id: string, tracker: INotebookTracker) => {
   let lastCell = tracker.activeCell;
-  console.log(tracker.currentWidget);
   tracker.currentWidget?.content.widgets.forEach(cell => {
     const md = cell.model.metadata.get('conflict_editing') as any;
     if (md && md.parent === id) {
@@ -87,12 +86,9 @@ export const onForkHandler = (id: string, tracker: INotebookTracker) => {
   if (lastCell) {
     lastCell.editor.focus();
   }
-  // console.log(lastCell?.node);
 
   if (tracker.currentWidget?.content) {
-    NotebookActions.selectBelow(tracker.currentWidget?.content);
-    NotebookActions.selectBelow(tracker.currentWidget?.content);
-    console.log(tracker.activeCell?.node);
+    console.log('fork parallel cell group after:', tracker.activeCell?.node);
     originInsertBelow(tracker.currentWidget?.content);
     const newCell = tracker.activeCell;
     const nid = random(4);
