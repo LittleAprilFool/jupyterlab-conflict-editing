@@ -52,20 +52,30 @@
 .cell-version-selection-tab-item.selected {
     background-color: lightgray;
 }
-.version-fork{
-  width: 15px;
-  min-width: 0px;
-  border: 1px solid lightgray;
+
+.right-btn{
   position: absolute;
   right: 0px;
   padding: 5px;
 }
-.version-fork::after{
-  font-family: "Font Awesome 5 Free";
-  content: "\2b";
+
+.right-btn-item{
+  display:inline-block;
+  background-color: whitesmoke;
+  width: 20px;
+  height: 20px;
+  min-width: 0px;
+  border: 1px solid lightgray;
   font-weight: 400;
   font-size: 12px;
   color: #aaaaaa;
+  text-align: center;
+  margin-left: 2px;
+}
+
+.version-fork::after{
+  font-family: "Font Awesome 5 Free";
+  content: "\2b";
 }
 .mainmark::after {
   font-family: "Font Awesome 5 Free";
@@ -83,6 +93,14 @@
   font-weight: 900;
   font-size: 12px;
   color: #7b7b7b;
+}
+
+.sync-btn::after{
+  font-family: "Font Awesome 5 Free";
+  content: "\f021";
+  font-weight: 900;
+  font-size: 12px;   
+  vertical-align: middle;
 }
 
 .mainmark {

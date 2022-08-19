@@ -105,15 +105,36 @@ export const renderCellDecoration = (
       selectionTab.classList.add(
         `cell-version-selection-tab-parent-${metaData.parent}`
       );
+      const rightBtnGroup = document.createElement('div');
+      rightBtnGroup.classList.add('right-btn');
       const forkButton = document.createElement('div');
-      forkButton.classList.add('cell-version-selection-tab-item');
+      forkButton.classList.add('right-btn-item');
       forkButton.classList.add('version-fork');
       forkButton.id = `version-fork-${metaData.parent}`;
-      selectionTab.appendChild(forkButton);
+      const syncButton = document.createElement('div');
+      syncButton.classList.add('right-btn-item');
+      syncButton.classList.add('sync-btn');
+      syncButton.id = `sync-btn-${metaData.parent}`;
+      rightBtnGroup.appendChild(syncButton);
+      rightBtnGroup.appendChild(forkButton);
+      selectionTab.appendChild(rightBtnGroup);
       forkButton.onclick = e => {
         const parent_id = (e.target as HTMLElement).id.split('-')[2];
         if (tracker) {
           onForkHandler(parent_id, tracker);
+        }
+      };
+      syncButton.onclick = e => {
+        if (tracker) {
+          const current_cell = tracker.activeCell;
+          const meta = current_cell?.model.metadata.get(
+            'conflict_editing'
+          ) as any;
+          if (meta && meta.name) {
+            syncKernel(tracker, meta.name);
+            // make other cells empty
+            console.log(current_cell);
+          }
         }
       };
       const currentTab = createCurrentTab(metaData, cell, cells, selectionTab);
@@ -172,7 +193,7 @@ export const createCurrentTab = (
   currentTab.appendChild(mainMark);
   currentTab.appendChild(versionInfoEditor);
   currentTab.appendChild(versionInfoLabel);
-
+  // TODO: can't edit version info
   versionInfoLabel.ondblclick = () => {
     versionInfoLabel.classList.toggle('hide');
     versionInfoEditor.classList.toggle('hide');
@@ -282,19 +303,30 @@ export const renderParallelIndentationButton = (
     indentationNode.addEventListener('click', () => {
       // this will unindent the parallel cell group
       // show a dialog for users to confirm
-      showDialog({
-        title: 'Delete Other Parallel Cell Groups',
-        body: 'Unindent the current parallel cell group would delete other alternative cell groups. Do you want to continue?',
-        buttons: [
-          Dialog.cancelButton(),
-          Dialog.okButton({ label: 'GO', className: 'TDB-Prompt-Dialog__btn' })
-        ]
-      }).then(res => {
-        if (res.button.label === 'GO') {
-          unindentParallelGroup(id, group_id, tracker);
-          indentationNode.parentNode?.removeChild(indentationNode);
-        }
-      });
+      const tabEle = cell.node.querySelectorAll(
+        '.cell-version-selection-tab-item'
+      );
+      if (tabEle.length > 1) {
+        showDialog({
+          title: 'Delete Other Parallel Cell Groups',
+          body: 'Unindent the current parallel cell group would delete other alternative cell groups. Do you want to continue?',
+          buttons: [
+            Dialog.cancelButton(),
+            Dialog.okButton({
+              label: 'GO',
+              className: 'TDB-Prompt-Dialog__btn'
+            })
+          ]
+        }).then(res => {
+          if (res.button.label === 'GO') {
+            unindentParallelGroup(id, group_id, tracker);
+            indentationNode.parentNode?.removeChild(indentationNode);
+          }
+        });
+      } else {
+        unindentParallelGroup(id, group_id, tracker);
+        indentationNode.parentNode?.removeChild(indentationNode);
+      }
     });
   }
 };
@@ -396,4 +428,18 @@ export const renderUnindent = (widget: Cell, meta: IMetaDataType): void => {
   tabs.forEach(tab => {
     tab.parentNode?.removeChild(tab);
   });
+};
+
+const syncKernel = (tracker: INotebookTracker, id: string) => {
+  const kernel = tracker.currentWidget?.sessionContext.session?.kernel;
+  if (kernel) {
+    const future = kernel?.requestExecute({
+      code: `_${id}._sync()`
+    });
+    future.onIOPub = (msg: any): void => {
+      if (msg.msg_type === 'error') {
+        console.log(msg);
+      }
+    };
+  }
 };

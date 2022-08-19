@@ -39,6 +39,12 @@ except:
     def __getitem__(self, key):
         return getattr(self, key)
 
+    def _sync(self):
+        _executeCode('_global_vars = _filter_var(dir())')
+        self._global_vars = _global_vars
+        self._copyglobal()
+        return
+
 @register_cell_magic
 def _parallelCell(line, cell):
     name='_'+line.split(" ")[0]

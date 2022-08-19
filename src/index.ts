@@ -13,7 +13,7 @@ import {
   renderCellDecoration,
   renderParallelIndentationButton
 } from './parallelGroupView';
-import { ForkButtonExtension } from './forkButton';
+// import { ForkButtonExtension } from './forkButton';
 import { Cell, ICellModel } from '@jupyterlab/cells';
 import { YNotebook } from '@jupyterlab/shared-models';
 // import { Awareness } from 'y-protocols/awareness';
@@ -42,11 +42,11 @@ const plugin: JupyterFrontEndPlugin<void> = {
   requires: [INotebookTracker],
   activate: (app: JupyterFrontEnd, tracker: INotebookTracker) => {
     console.log('JupyterLab extension conflict-editing is activated!!!23456');
-    // change the cell insert, copy, delete behaviors
-    app.docRegistry.addWidgetExtension(
-      'Notebook',
-      new ForkButtonExtension(originInsertBelow)
-    );
+    // // change the cell insert, copy, delete behaviors
+    // app.docRegistry.addWidgetExtension(
+    //   'Notebook',
+    //   new ForkButtonExtension(originInsertBelow)
+    // );
     const fontAwesome = document.createElement('script');
     fontAwesome.src = 'https://kit.fontawesome.com/00f360a06b.js';
     document.head.appendChild(fontAwesome);

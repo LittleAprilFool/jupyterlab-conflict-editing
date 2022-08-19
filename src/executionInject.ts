@@ -13,7 +13,7 @@ import { variableScript } from './pscripts/variableScript';
 import { multiCodeScript } from './pscripts/multiCodeScript';
 import { codeAnalyzerScript } from './pscripts/codeAnalyzerScript';
 import { forkCellScript } from './pscripts/forkCellScript';
-
+import { showDialog } from '@jupyterlab/apputils';
 export class ExecutionInject {
   private session: Session.ISessionConnection | null = null;
   private blockedVariable: any[] = [];
@@ -42,62 +42,9 @@ export class ExecutionInject {
         ): Promise<IExecuteReplyMsg | undefined> => {
           let promise;
           try {
-            // let variables: string[] = [];
-            // let variables_glob: string[] = [];
-            // let variables_local: string[] = [];
-
-            // first, execute analyzer to detect what variables are used in the function
-            // this should be executed before executionScheduled...
-            // if (this.session?.kernel) {
-            //   const kernel = this.session.kernel;
-            //   if (kernel) {
-            //     const future = kernel.requestExecute({
-            //       code: `analyze("""${code}""")`
-            //     });
-            //     future.onIOPub = (msg: any): void => {
-            //       if (msg.msg_type === 'error') {
-            //         console.log(msg);
-            //       }
-            //       if (msg.msg_type === 'stream') {
-            //         variables_local = parseVariable(msg.content.text);
-            //       }
-            //     };
-            //     await future.done;
-
-            //     const future2 = kernel.requestExecute({
-            //       code: 'dir()'
-            //     });
-            //     future2.onIOPub = (msg: any): void => {
-            //       if (msg.msg_type === 'error') {
-            //         console.log(msg);
-            //       }
-            //       if (msg.msg_type === 'execute_result') {
-            //         variables_glob = parseGlobalVariable(
-            //           msg.content.data['text/plain']
-            //         );
-            //       }
-            //     };
-            //     await future2.done;
-            //     variables = variables_local.filter(x =>
-            //       variables_glob.includes(x)
-            //     );
-            //   }
-            // }
-
             if (!ismain) {
               code = `%%_parallelCell ${name} \n${code}`;
             }
-
-            // if (variables.length > 0) {
-            //   if (!ismain) {
-            //     code = `%%_parallelCell _${name} \n${code}`;
-            //   }
-            // } else {
-            //   // change the code cell value
-            //   if (!ismain) {
-            //     code = `%%_parallelCell _${name}\n${code}`;
-            //   }
-            // }
             // TODO: add self to function definition
             promise = executeFn(code, output, sessionContext, metadata);
           } finally {
@@ -129,7 +76,11 @@ export class ExecutionInject {
             if (flag) {
               promise = executeFn(code, output, sessionContext, metadata);
             } else {
-              alert("Can't edit the variable " + vname);
+              showDialog({
+                title: 'No access to the variable',
+                body: `Can't edit the variable ${vname}`
+              });
+              // alert("Can't edit the variable " + vname);
               promise = executeFn('', output, sessionContext, metadata);
             }
           } finally {
@@ -215,21 +166,6 @@ export class ExecutionInject {
     this.blockedVariable = blockedVariable;
   }
 }
-
-// const parseVariable = (text: string) => {
-//   const replaced = text.split("'").join('"');
-//   const result = JSON.parse(replaced);
-//   const unique = [...new Set(result.variable)] as string[];
-
-//   return unique;
-// };
-
-// const parseGlobalVariable = (text: string) => {
-//   const replaced = text.split("'").join('"');
-//   const result = JSON.parse(replaced);
-//   const unique = [...new Set(result)] as string[];
-//   return unique;
-// };
 
 const isSame = (array1: any[], array2: any[]) => {
   const is_same =
