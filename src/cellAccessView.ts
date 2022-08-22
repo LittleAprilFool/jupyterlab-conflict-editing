@@ -114,16 +114,16 @@ const createOptionPanel = (
     const userOptionWrapper = document.createElement('div');
     const userOptionCheckBox = document.createElement('input');
     userOptionCheckBox.type = 'checkbox';
-    userOptionCheckBox.checked = !blacklist.includes(user);
+    userOptionCheckBox.checked = !blacklist.includes(user.name);
     userOptionCheckBox.onclick = () => {
       // change metadata
       const userFlag = userOptionCheckBox.checked;
       if (userFlag) {
         // remove user from blacklist
-        blacklist.splice(blacklist.indexOf(user), 1);
+        blacklist.splice(blacklist.indexOf(user.name), 1);
       } else {
         // add user to blacklist
-        blacklist.push(user);
+        blacklist.push(user.name);
       }
       // update metadata
       const oldMeta = cell.model.metadata.get('access_control');
@@ -146,7 +146,7 @@ const createOptionPanel = (
       cell?.model.metadata.set('access_control', access);
     };
     const userOptionLabel = document.createElement('label');
-    userOptionLabel.textContent = user;
+    userOptionLabel.textContent = user.name;
     userOptionWrapper.appendChild(userOptionCheckBox);
     userOptionWrapper.appendChild(userOptionLabel);
     userListContainer.appendChild(userOptionWrapper);

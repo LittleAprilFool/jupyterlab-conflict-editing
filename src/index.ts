@@ -134,25 +134,33 @@ const plugin: JupyterFrontEndPlugin<void> = {
           .split('; ')
           ?.find(row => row.startsWith('hub_user='))
           ?.split('=')[1];
+        const isCreator =
+          window.location.pathname.split('/')[1] === 'lab' ||
+          window.location.pathname.split('/')[2] === username;
+        const color = Math.floor(Math.random() * 16777215).toString(16);
 
         const model = notebookPanel.content.model!.sharedModel as YNotebook;
         const currentState = model.awareness.getLocalState();
         thisUser = currentState?.user.name ?? '';
         if (username) {
-          model.awareness.setLocalStateField('user', { name: username });
+          model.awareness.setLocalStateField('user', {
+            name: username,
+            color: `#${color}`,
+            isCreator
+          });
           thisUser = username;
         }
 
         // collect current users
         model.awareness.on('change', () => {
-          const strings: string[] = [];
+          const users: any[] = [];
           model.awareness.getStates().forEach(state => {
             if (state.user) {
-              strings.push(state.user.name);
+              users.push(state.user);
             }
           });
-          userList = strings;
-          collaborationWidget.updateUserList(strings);
+          userList = users;
+          collaborationWidget.updateUserList(users);
         });
       }
     );

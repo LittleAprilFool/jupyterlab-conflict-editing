@@ -9,7 +9,7 @@ import { NotebookPanel } from '@jupyterlab/notebook';
 interface ICollaborationComponentProps {
   cell: Cell | null;
   access_meta: any;
-  userlist: string[];
+  userlist: any[];
   variable_inspec: any[];
   notebook: NotebookPanel | null;
 }
@@ -83,7 +83,7 @@ const CollaborationComponent = ({
     const newvariableList = JSON.parse(JSON.stringify(variable_inspec));
     newvariableList[node.dataset.vid].access = toggle(
       newvariableList[node.dataset.vid].access,
-      userlist[node.dataset.uid]
+      userlist[node.dataset.uid].name
     );
 
     console.log(
@@ -101,7 +101,14 @@ const CollaborationComponent = ({
         <div className="section-content">
           <div className="users">
             {userlist.map(user => {
-              return <div className="username">{user}</div>;
+              return (
+                <div
+                  className={user.isCreator ? 'username iscreator' : 'username'}
+                  style={{ borderLeftColor: user.color }}
+                >
+                  {user.name}
+                </div>
+              );
             })}
           </div>
         </div>
@@ -195,7 +202,7 @@ const CollaborationComponent = ({
                                 data-vid={vid}
                                 data-uid={index}
                               />{' '}
-                              {user}
+                              {user.name}
                             </li>
                           );
                         })}
@@ -235,7 +242,7 @@ export class CollaborationWidget extends ReactWidget {
    */
   cell: Cell | null = null;
   notebook: NotebookPanel | null = null;
-  userlist: string[] = [];
+  userlist: any[] = [];
   variable_inspect: any[] = [];
   updateWidget = new Signal<CollaborationWidget, ICollaborationComponentProps>(
     this
@@ -295,9 +302,10 @@ export class CollaborationWidget extends ReactWidget {
     });
   }
 
-  updateUserList(userlist: string[]): void {
+  updateUserList(userlist: any[]): void {
     if (this.userlist !== userlist) {
       this.userlist = userlist;
+      console.log(this.userlist);
       const access_meta = this.cell?.model.metadata.get(
         'access_control'
       ) as any;
