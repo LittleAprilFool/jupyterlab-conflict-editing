@@ -5,10 +5,10 @@ import { Signal } from '@lumino/signaling';
 
 import React, { useEffect } from 'react';
 import { NotebookPanel } from '@jupyterlab/notebook';
-
+import { getThisUser } from '.';
 interface ICollaborationComponentProps {
   cell: Cell | null;
-  access_meta: any;
+  chat: any[];
   userlist: any[];
   variable_inspec: any[];
   notebook: NotebookPanel | null;
@@ -31,13 +31,14 @@ const toggle = (collection: string[], item: string) => {
  */
 const CollaborationComponent = ({
   cell,
-  access_meta,
+  chat,
   userlist,
   variable_inspec,
   notebook
 }: ICollaborationComponentProps): JSX.Element => {
   // const [counter, setCounter] = useState(0);
   const activeCellRef = React.useRef<HTMLDivElement>(null);
+  const messageInputRef = React.useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (activeCellRef.current) {
       if (cell?.node) {
@@ -52,26 +53,6 @@ const CollaborationComponent = ({
       }
     }
   }, [cell]);
-
-  // const changeAccess = (user: string, type: string): any => {
-  //   let access = {
-  //     edit: [] as string[],
-  //     read: [] as string[]
-  //   };
-  //   if (cell) {
-  //     if (access_meta) {
-  //       access = JSON.parse(JSON.stringify(access_meta));
-  //     }
-
-  //     if (type === 'Edit') {
-  //       access.edit = toggle(access.edit, user);
-  //     }
-  //     if (type === 'Read') {
-  //       access.read = toggle(access.read, user);
-  //     }
-  //   }
-  //   cell?.model.metadata.set('access_control', access);
-  // };
 
   const clickVariableAccess = (e: any): any => {
     const parentNode: HTMLDivElement = e.target.parentNode as HTMLDivElement;
@@ -92,6 +73,39 @@ const CollaborationComponent = ({
       newvariableList
     );
     notebook?.model?.metadata.set('variable_inspec', newvariableList);
+  };
+
+  const sendMessage = () => {
+    const messageList = notebook?.model?.metadata.get('chat');
+    let newMessageList = [];
+    if (messageList) {
+      newMessageList = JSON.parse(JSON.stringify(messageList));
+    }
+
+    const newMessage = {
+      sender: getThisUser(),
+      content: messageInputRef.current?.value
+    };
+
+    newMessageList.push(newMessage);
+    console.log('send message', messageList, newMessageList);
+    console.log(notebook);
+    notebook?.model?.metadata.set('chat', newMessageList);
+    if (messageInputRef.current) {
+      messageInputRef.current.value = '';
+    }
+  };
+
+  const getColor = (username: any) => {
+    let color = '#aaa';
+    userlist.forEach(user => {
+      console.log(user.name, username, user.name === username);
+      if (user.name === username) {
+        color = user.color;
+      }
+    });
+    console.log(color);
+    return color;
   };
 
   return (
@@ -121,55 +135,6 @@ const CollaborationComponent = ({
         </div>
       </div>
 
-      {/* <div className="section-wrapper">
-        <div className="section-title">Can Edit the Cell</div>
-        <div className="section-content">
-          <div className="users">
-            {userlist.map(user => {
-              return (
-                <div>
-                  <input
-                    type="checkbox"
-                    id={user}
-                    name={user}
-                    value={user}
-                    checked={!access_meta.edit.includes(user)}
-                    onChange={() => {
-                      changeAccess(user, 'Edit');
-                    }}
-                  />
-                  <label htmlFor={user}>{user}</label>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      <div className="section-wrapper">
-        <div className="section-title">Can Read the Cell</div>
-        <div className="section-content">
-          <div className="users">
-            {userlist.map(user => {
-              return (
-                <div>
-                  <input
-                    type="checkbox"
-                    id={user}
-                    name={user}
-                    value={user}
-                    checked={!access_meta.read.includes(user)}
-                    onChange={() => {
-                      changeAccess(user, 'Read');
-                    }}
-                  />
-                  <label htmlFor={user}>{user}</label>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div> */}
       <div className="section-wrapper">
         <div className="section-title">Variables</div>
         <div className="section-content">
@@ -216,19 +181,38 @@ const CollaborationComponent = ({
         </div>
       </div>
 
-      {/* <div className="section-wrapper">
-        <div className="section-title">Testing</div>
+      <div className="section-wrapper">
+        <div className="section-title">Chat</div>
         <div className="section-content">
-          <p>You clicked {counter} times!</p>
-          <button
-            onClick={(): void => {
-              setCounter(counter + 1);
-            }}
-          >
-            Increment
-          </button>
+          <div className="chat-container">
+            <div className="message-list">
+              {chat.map(msg => {
+                return (
+                  <div className="msg-container">
+                    <div
+                      className="msg-sender"
+                      style={{ color: getColor(msg.sender) }}
+                    >
+                      {msg.sender}
+                    </div>
+                    <div className="msg-content">{msg.content}</div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="message-sender">
+              <input
+                ref={messageInputRef}
+                className="message-input"
+                type="text"
+              />
+              <button className="message-btn" onClick={sendMessage}>
+                Send
+              </button>
+            </div>
+          </div>
         </div>
-      </div> */}
+      </div>
     </div>
   );
 };
@@ -244,6 +228,7 @@ export class CollaborationWidget extends ReactWidget {
   notebook: NotebookPanel | null = null;
   userlist: any[] = [];
   variable_inspect: any[] = [];
+  chat: any[] = [];
   updateWidget = new Signal<CollaborationWidget, ICollaborationComponentProps>(
     this
   );
@@ -255,10 +240,17 @@ export class CollaborationWidget extends ReactWidget {
   updateNotebook(notebook: NotebookPanel | null): any {
     console.log('update notebook');
     this.notebook = notebook;
-    const access_meta = this.cell?.model.metadata.get('access_control') as any;
+    const chat = notebook?.model?.metadata.get('chat');
+    if (chat) {
+      this.chat = chat as any;
+    }
+    const variable_inspect = notebook?.model?.metadata.get('variable_inspec');
+    if (variable_inspect) {
+      this.variable_inspect = variable_inspect as any;
+    }
     this.updateWidget.emit({
       cell: this.cell,
-      access_meta,
+      chat: this.chat,
       variable_inspec: this.variable_inspect,
       userlist: this.userlist,
       notebook
@@ -267,22 +259,10 @@ export class CollaborationWidget extends ReactWidget {
 
   updateCellSelection(cell: Cell): void {
     this.cell = cell;
-    const access_meta = cell.model.metadata.get('access_control') as any;
     console.log('update cell selection');
     this.updateWidget.emit({
       cell: this.cell,
-      access_meta,
-      variable_inspec: this.variable_inspect,
-      userlist: this.userlist,
-      notebook: this.notebook
-    });
-  }
-
-  updateAccessData(data: any): void {
-    console.log('update access data', data);
-    this.updateWidget.emit({
-      cell: this.cell,
-      access_meta: data,
+      chat: this.chat,
       variable_inspec: this.variable_inspect,
       userlist: this.userlist,
       notebook: this.notebook
@@ -292,11 +272,22 @@ export class CollaborationWidget extends ReactWidget {
   updateInspectData(data: any): void {
     console.log('update inspect data', data);
     this.variable_inspect = data;
-    const access_meta = this.cell?.model.metadata.get('access_control') as any;
     this.updateWidget.emit({
       cell: this.cell,
-      access_meta,
+      chat: this.chat,
       variable_inspec: data,
+      userlist: this.userlist,
+      notebook: this.notebook
+    });
+  }
+
+  updateChatData(data: any): void {
+    console.log('update chat data', data);
+    this.chat = data;
+    this.updateWidget.emit({
+      cell: this.cell,
+      chat: this.chat,
+      variable_inspec: this.variable_inspect,
       userlist: this.userlist,
       notebook: this.notebook
     });
@@ -305,13 +296,9 @@ export class CollaborationWidget extends ReactWidget {
   updateUserList(userlist: any[]): void {
     if (this.userlist !== userlist) {
       this.userlist = userlist;
-      console.log(this.userlist);
-      const access_meta = this.cell?.model.metadata.get(
-        'access_control'
-      ) as any;
       this.updateWidget.emit({
         cell: this.cell,
-        access_meta,
+        chat: this.chat,
         variable_inspec: this.variable_inspect,
         userlist: this.userlist,
         notebook: this.notebook
@@ -322,7 +309,7 @@ export class CollaborationWidget extends ReactWidget {
   render(): React.ReactElement<any> {
     const init: ICollaborationComponentProps = {
       cell: null,
-      access_meta: { edit: [], read: [] },
+      chat: this.chat,
       userlist: this.userlist,
       variable_inspec: this.variable_inspect,
       notebook: this.notebook
@@ -334,7 +321,7 @@ export class CollaborationWidget extends ReactWidget {
             return (
               <CollaborationComponent
                 cell={args?.cell ?? null}
-                access_meta={args?.access_meta ?? { edit: [], read: [] }}
+                chat={args?.chat ?? []}
                 variable_inspec={args?.variable_inspec ?? []}
                 userlist={args?.userlist ?? []}
                 notebook={args?.notebook ?? null}

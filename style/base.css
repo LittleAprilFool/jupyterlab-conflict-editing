@@ -390,3 +390,38 @@ input:checked + .slider:before {
   padding-left: 5px;
   color: #666;
 }
+
+.chat-container {
+  height: 300px;
+  border: 1px solid #ddd;
+}
+
+.message-list {
+  height: 275px;
+  overflow: scroll;
+}
+
+.message-sender {
+  height: 25px;
+  border-top: 1px solid #ccc;
+}
+
+.message-input {
+  border: none;
+}
+
+.message-btn {
+  border: none;
+  margin-left: 3px;
+  height: 22px;
+  width: 50px;
+}
+
+.msg-container {
+  padding: 6px;
+}
+
+.msg-sender {
+  font-size: smaller;
+  font-weight: bold;
+}

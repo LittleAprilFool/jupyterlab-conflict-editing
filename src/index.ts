@@ -36,6 +36,10 @@ export const getUserList = (): any[] => {
   return userList;
 };
 
+export const getThisUser = (): string => {
+  return thisUser;
+};
+
 const plugin: JupyterFrontEndPlugin<void> = {
   id: 'conflict-editing:plugin',
   autoStart: true,
@@ -126,6 +130,10 @@ const plugin: JupyterFrontEndPlugin<void> = {
                 updateVariableHighlights(tracker, blockedVariables);
               }
             }
+            if (changes.key === 'chat') {
+              const chatData = metaData.get('chat') as any[];
+              collaborationWidget.updateChatData(chatData);
+            }
           }
         );
 
@@ -200,7 +208,6 @@ const onCellMetaChange = (
   if (changes.key === 'access_control') {
     console.log('cell meta changed!!', cmetaData, changes);
     const accessData = changes.newValue;
-    collaborationWidget.updateAccessData(accessData);
     if (accessData) {
       if (accessData.edit && accessData.edit.includes(thisUser)) {
         widget.editor.setOption('readOnly', true);
