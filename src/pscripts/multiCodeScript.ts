@@ -4,6 +4,7 @@ import ast
 import pickle
 import json
 import _pickle as cPickle
+import traceback
 
 from io import StringIO 
 from IPython.core.magic import (register_line_magic, register_cell_magic)
@@ -110,10 +111,14 @@ def _executeCodeLocal(content, name, variables):
     _locals = _vartoLocals(name, variables)
     code = f'''_locals = {_locals}
 exec(\\'\\'\\'{content}\\'\\'\\', globals(), _locals)
-for key, value in _locals.items():
-    {name}[key] = value
+for _key, _value in _locals.items():
+    {name}[_key] = _value
 '''
-    exec(code, globals())
+    try:
+        exec(code, globals())
+    except Exception:
+        sys.stdout = old_stdout
+        traceback.print_exc()
     sys.stdout = old_stdout
     if(redirected_output.getvalue()):
         output = redirected_output.getvalue()

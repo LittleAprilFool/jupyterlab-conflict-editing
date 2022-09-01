@@ -1,8 +1,9 @@
 import { Cell } from '@jupyterlab/cells';
 import { INotebookTracker, NotebookActions } from '@jupyterlab/notebook';
 import { addMetaData, IMetaDataType, onForkHandler } from './forkButton';
-import { originInsertAbove } from '.';
+import { logger, originInsertAbove } from '.';
 import { showDialog, Dialog } from '@jupyterlab/apputils';
+import { EventType } from './logger';
 // unfold; fold; side-by-side
 
 export const renderCellDecoration = (
@@ -63,6 +64,26 @@ export const renderCellDecoration = (
         const mirrorNode = parentSelectionTab.childNodes[i] as HTMLDivElement;
         selectionTab.childNodes[i].onclick = mirrorNode.onclick;
       }
+      const selectionTab_sync = selectionTab.querySelector(
+        '.sync-btn'
+      ) as HTMLDivElement;
+      const mirrorNode_sync = parentSelectionTab.querySelector(
+        '.sync-btn'
+      ) as HTMLDivElement;
+      if (mirrorNode_sync) {
+        selectionTab_sync.onclick = mirrorNode_sync.onclick;
+      }
+
+      const selectionTab_fork = selectionTab.querySelector(
+        '.version-fork'
+      ) as HTMLDivElement;
+      const mirrorNode_fork = parentSelectionTab.querySelector(
+        '.version-fork'
+      ) as HTMLDivElement;
+      if (mirrorNode_fork) {
+        selectionTab_fork.onclick = mirrorNode_fork.onclick;
+      }
+
       const currentTab = createCurrentTab(metaData, cell, cells, selectionTab);
       const currentTabNonSelected = currentTab.cloneNode(
         true
@@ -121,19 +142,26 @@ export const renderCellDecoration = (
       forkButton.onclick = e => {
         const parent_id = (e.target as HTMLElement).id.split('-')[2];
         if (tracker) {
-          onForkHandler(parent_id, tracker);
+          logger.send(EventType.ForkParallelCell);
+          onForkHandler(parent_id, tracker, cell.model.value.text);
         }
       };
       syncButton.onclick = e => {
         if (tracker) {
-          const current_cell = tracker.activeCell;
+          logger.send(EventType.SyncParallelKernel);
+          const current_cell = tracker.activeCell as any;
           const meta = current_cell?.model.metadata.get(
             'conflict_editing'
           ) as any;
           if (meta && meta.name) {
             syncKernel(tracker, meta.name);
-            // make other cells empty
-            console.log(current_cell);
+            cells.forEach(c => {
+              const thisc = c as any;
+              const cmeta = c.model.metadata.get('conflict_editing') as any;
+              if (cmeta && cmeta.id === meta.id) {
+                thisc.model.clearExecution();
+              }
+            });
           }
         }
       };
@@ -285,6 +313,7 @@ export const renderParallelIndentationButton = (
     cell.node.appendChild(indentationNode);
     indentationNode.classList.add('indentation-do-btn');
     indentationNode.addEventListener('click', () => {
+      logger.send(EventType.IndentCell);
       addMetaData(cell);
       indentationNode.parentNode?.removeChild(indentationNode);
     });
@@ -303,6 +332,7 @@ export const renderParallelIndentationButton = (
     indentationNode.addEventListener('click', () => {
       // this will unindent the parallel cell group
       // show a dialog for users to confirm
+      logger.send(EventType.UnindentCell);
       const tabEle = cell.node.querySelectorAll(
         '.cell-version-selection-tab-item'
       );
@@ -429,7 +459,48 @@ export const renderUnindent = (widget: Cell, meta: IMetaDataType): void => {
     tab.parentNode?.removeChild(tab);
   });
 };
-
+export const renderUnindentBtn = (
+  cell: Cell,
+  meta: IMetaDataType,
+  tracker: INotebookTracker
+): void => {
+  const indentationNode = document.createElement('div');
+  indentationNode.classList.add('indentation-btn');
+  cell.node.appendChild(indentationNode);
+  const metadata = cell.model.metadata.get('conflict_editing') as any;
+  const id = metadata.id;
+  const group_id = metadata.parent;
+  indentationNode.classList.add('indentation-cancel-btn');
+  indentationNode.addEventListener('click', () => {
+    // this will unindent the parallel cell group
+    // show a dialog for users to confirm
+    logger.send(EventType.UnindentCell);
+    const tabEle = cell.node.querySelectorAll(
+      '.cell-version-selection-tab-item'
+    );
+    if (tabEle.length > 1) {
+      showDialog({
+        title: 'Delete Other Parallel Cell Groups',
+        body: 'Unindent the current parallel cell group would delete other alternative cell groups. Do you want to continue?',
+        buttons: [
+          Dialog.cancelButton(),
+          Dialog.okButton({
+            label: 'GO',
+            className: 'TDB-Prompt-Dialog__btn'
+          })
+        ]
+      }).then(res => {
+        if (res.button.label === 'GO') {
+          unindentParallelGroup(id, group_id, tracker);
+          indentationNode.parentNode?.removeChild(indentationNode);
+        }
+      });
+    } else {
+      unindentParallelGroup(id, group_id, tracker);
+      indentationNode.parentNode?.removeChild(indentationNode);
+    }
+  });
+};
 const syncKernel = (tracker: INotebookTracker, id: string) => {
   const kernel = tracker.currentWidget?.sessionContext.session?.kernel;
   if (kernel) {

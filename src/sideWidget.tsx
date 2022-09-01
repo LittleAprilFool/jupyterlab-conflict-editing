@@ -5,7 +5,8 @@ import { Signal } from '@lumino/signaling';
 
 import React, { useEffect } from 'react';
 import { NotebookPanel } from '@jupyterlab/notebook';
-import { getThisUser } from '.';
+import { getThisUser, logger } from '.';
+import { EventType } from './logger';
 interface ICollaborationComponentProps {
   cell: Cell | null;
   chat: any[];
@@ -60,6 +61,7 @@ const CollaborationComponent = ({
   };
 
   const changeVariableAccess = (e: any): any => {
+    logger.send(EventType.ChangeVariableAccess);
     const node = e.target;
     const newvariableList = JSON.parse(JSON.stringify(variable_inspec));
     newvariableList[node.dataset.vid].access = toggle(
@@ -67,15 +69,11 @@ const CollaborationComponent = ({
       userlist[node.dataset.uid].name
     );
 
-    console.log(
-      'change variable access',
-      notebook?.model?.metadata.get('variable_inspec'),
-      newvariableList
-    );
     notebook?.model?.metadata.set('variable_inspec', newvariableList);
   };
 
   const sendMessage = () => {
+    logger.send(EventType.SendChat);
     const messageList = notebook?.model?.metadata.get('chat');
     let newMessageList = [];
     if (messageList) {
@@ -88,8 +86,6 @@ const CollaborationComponent = ({
     };
 
     newMessageList.push(newMessage);
-    console.log('send message', messageList, newMessageList);
-    console.log(notebook);
     notebook?.model?.metadata.set('chat', newMessageList);
     if (messageInputRef.current) {
       messageInputRef.current.value = '';
@@ -99,12 +95,10 @@ const CollaborationComponent = ({
   const getColor = (username: any) => {
     let color = '#aaa';
     userlist.forEach(user => {
-      console.log(user.name, username, user.name === username);
       if (user.name === username) {
         color = user.color;
       }
     });
-    console.log(color);
     return color;
   };
 
@@ -162,7 +156,7 @@ const CollaborationComponent = ({
                             <li>
                               <input
                                 type="checkbox"
-                                checked={variable.access.indexOf(user) < 0}
+                                checked={variable.access.indexOf(user.name) < 0}
                                 onClick={changeVariableAccess}
                                 data-vid={vid}
                                 data-uid={index}
@@ -238,16 +232,22 @@ export class CollaborationWidget extends ReactWidget {
   }
 
   updateNotebook(notebook: NotebookPanel | null): any {
-    console.log('update notebook');
     this.notebook = notebook;
     const chat = notebook?.model?.metadata.get('chat');
     if (chat) {
       this.chat = chat as any;
+    } else {
+      this.chat = [];
     }
+
     const variable_inspect = notebook?.model?.metadata.get('variable_inspec');
     if (variable_inspect) {
       this.variable_inspect = variable_inspect as any;
+    } else {
+      this.variable_inspect = [];
     }
+    console.log('update notebook', notebook, chat, variable_inspect);
+
     this.updateWidget.emit({
       cell: this.cell,
       chat: this.chat,
@@ -259,7 +259,6 @@ export class CollaborationWidget extends ReactWidget {
 
   updateCellSelection(cell: Cell): void {
     this.cell = cell;
-    console.log('update cell selection');
     this.updateWidget.emit({
       cell: this.cell,
       chat: this.chat,
@@ -270,19 +269,18 @@ export class CollaborationWidget extends ReactWidget {
   }
 
   updateInspectData(data: any): void {
-    console.log('update inspect data', data);
+    console.log('update inspect data in side widget', data);
     this.variable_inspect = data;
     this.updateWidget.emit({
       cell: this.cell,
       chat: this.chat,
-      variable_inspec: data,
+      variable_inspec: this.variable_inspect,
       userlist: this.userlist,
       notebook: this.notebook
     });
   }
 
   updateChatData(data: any): void {
-    console.log('update chat data', data);
     this.chat = data;
     this.updateWidget.emit({
       cell: this.cell,

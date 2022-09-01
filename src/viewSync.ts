@@ -7,6 +7,12 @@ export const updateVariableHighlights = (
   tracker: INotebookTracker,
   variables: any[]
 ): void => {
+  const staledHighlights = document.querySelectorAll(
+    '.restricted-variable-highlights'
+  );
+  staledHighlights.forEach(stale => {
+    stale.classList.remove('restricted-variable-highlights');
+  });
   variables.forEach(variable => {
     const widgets = tracker.currentWidget?.content?.widgets;
     widgets?.forEach(widget => {
@@ -72,11 +78,7 @@ export const syncCellDeletion = (metaData: any, tracker: INotebookTracker) => {
   let selectionTab = document.createElement('div') as any;
   const nextCell = tracker.activeCell;
 
-  console.log('sync deletion');
-  console.log(nextCell);
-
   if (otherCells.length > 0) {
-    console.log('need to deal with tabs');
     if (!versiongroupTab) {
       // if (otherCells.length > 0) {
       // search if there are sibling tabs
@@ -85,7 +87,6 @@ export const syncCellDeletion = (metaData: any, tracker: INotebookTracker) => {
       );
 
       if (siblingTabs.length > 0) {
-        console.log('need to copy from others.');
         selectionTab = siblingTabs[0].cloneNode(true);
         selectionTab.id = `cell-version-selection-tab-${metaData.id}`;
         for (let i = 0; i < selectionTab.childNodes.length; i++) {

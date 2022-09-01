@@ -1,5 +1,6 @@
 import { Cell } from '@jupyterlab/cells';
-import { getUserList } from '.';
+import { getUserList, logger } from '.';
+import { EventType } from './logger';
 export const renderCellAccessOverview = (cell: Cell): void => {
   const username =
     document.cookie
@@ -116,6 +117,7 @@ const createOptionPanel = (
     userOptionCheckBox.type = 'checkbox';
     userOptionCheckBox.checked = !blacklist.includes(user.name);
     userOptionCheckBox.onclick = () => {
+      logger.send(EventType.ChangeCellAccess);
       // change metadata
       const userFlag = userOptionCheckBox.checked;
       if (userFlag) {

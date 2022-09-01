@@ -74,12 +74,15 @@ export class ForkButtonExtension
     });
   }
 }
-export const onForkHandler = (id: string, tracker: INotebookTracker) => {
+export const onForkHandler = (
+  id: string,
+  tracker: INotebookTracker,
+  content: string
+) => {
   let lastCell = tracker.activeCell;
   tracker.currentWidget?.content.widgets.forEach(cell => {
     const md = cell.model.metadata.get('conflict_editing') as any;
     if (md && md.parent === id) {
-      console.log(cell.node);
       lastCell = cell;
     }
   });
@@ -88,9 +91,11 @@ export const onForkHandler = (id: string, tracker: INotebookTracker) => {
   }
 
   if (tracker.currentWidget?.content) {
-    console.log('fork parallel cell group after:', tracker.activeCell?.node);
     originInsertBelow(tracker.currentWidget?.content);
     const newCell = tracker.activeCell;
+    if (newCell) {
+      newCell.model.value.text = content;
+    }
     const nid = random(4);
     let username = document.cookie
       .split('; ')

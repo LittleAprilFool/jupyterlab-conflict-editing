@@ -18,7 +18,6 @@ export class ExecutionInject {
   private session: Session.ISessionConnection | null = null;
   private blockedVariable: any[] = [];
   init(session: Session.ISessionConnection) {
-    console.log('Init the ExecutionInject component', session);
     this.session = session;
     // TODO: check if the magic code is already inserted by a collaborator
     this.changeExecutionMethod();
@@ -61,9 +60,6 @@ export class ExecutionInject {
         ): Promise<IExecuteReplyMsg | undefined> => {
           let promise;
           try {
-            console.log(
-              'check if this user is allowed to change the value of the variable'
-            );
             let flag = true;
             let vname = null;
             this.blockedVariable.forEach(variable => {
@@ -72,7 +68,6 @@ export class ExecutionInject {
                 vname = variable.varName;
               }
             });
-            console.log(code, this.blockedVariable, flag);
             if (flag) {
               promise = executeFn(code, output, sessionContext, metadata);
             } else {
@@ -91,44 +86,39 @@ export class ExecutionInject {
       }
     });
     NotebookActions.selectionExecuted.connect((_: any, output: any) => {
-      console.log('selection executed');
       if (this.session?.kernel) {
         const kernel = this.session.kernel;
         const future = kernel?.requestExecute({
           code: '_jupyterlab_variableinspector_dict_list()'
         });
         future.onIOPub = (msg: any): void => {
-          console.log(msg);
           if (msg.msg_type === 'error') {
             console.log(msg);
           }
           if (msg.msg_type === 'execute_result') {
-            console.log(msg.content.data['text/plain']);
             let data = msg.content.data['text/plain'];
             data = data.slice(1, data.length - 1);
             data = data.split('\\').join('');
-            console.log(data);
             const variable_inspec = JSON.parse(data);
-            console.log(variable_inspec);
 
             const old_variable =
               output.notebook.model.metadata.get('variable_inspec');
             variable_inspec.forEach((variable: any, index: number) => {
-              const isOld = old_variable.filter(
-                (x: any) => x.varName === variable.varName
-              );
-              if (isOld.length > 0) {
-                variable_inspec[index].access = isOld[0].access;
-              } else {
+              if (!old_variable) {
                 variable_inspec[index].access = [];
+              } else {
+                const isOld = old_variable.filter(
+                  (x: any) => x.varName === variable.varName
+                );
+                if (isOld.length > 0) {
+                  variable_inspec[index].access = isOld[0].access;
+                } else {
+                  variable_inspec[index].access = [];
+                }
               }
             });
-            console.log(
-              'before comparing variable inspec',
-              variable_inspec,
-              old_variable
-            );
-            if (!isSame(variable_inspec, old_variable)) {
+
+            if (!old_variable || !isSame(variable_inspec, old_variable)) {
               output.notebook.model.metadata.set(
                 'variable_inspec',
                 variable_inspec
@@ -148,7 +138,6 @@ export class ExecutionInject {
       this.session = output._session;
     }
     if (this.session?.kernel) {
-      console.log('Injecting cell magic');
       const kernel = this.session.kernel;
       const future = kernel?.requestExecute({
         code:

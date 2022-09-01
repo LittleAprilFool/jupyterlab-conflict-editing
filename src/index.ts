@@ -1,4 +1,5 @@
 import {
+  ILabShell,
   JupyterFrontEnd,
   JupyterFrontEndPlugin
 } from '@jupyterlab/application';
@@ -11,7 +12,8 @@ import {
 import {
   renderUnindent,
   renderCellDecoration,
-  renderParallelIndentationButton
+  renderParallelIndentationButton,
+  renderUnindentBtn
 } from './parallelGroupView';
 // import { ForkButtonExtension } from './forkButton';
 import { Cell, ICellModel } from '@jupyterlab/cells';
@@ -21,16 +23,18 @@ import { YNotebook } from '@jupyterlab/shared-models';
 import { ExecutionInject } from './executionInject';
 import { CollaborationWidget } from './sideWidget';
 import * as Icons from '@jupyterlab/ui-components';
-import { MainAreaWidget } from '@jupyterlab/apputils';
+import { MainAreaWidget, ICommandPalette } from '@jupyterlab/apputils';
 import { changeCellActions } from './cellActions';
 import { syncCellDeletion, updateVariableHighlights } from './viewSync';
 import { renderCellAccessOverview } from './cellAccessView';
+import { EventType, Logger } from './logger';
 
 // let NBTracker: INotebookTracker;
 const executionInject = new ExecutionInject();
 let thisUser = '';
 let userList: any[] = [];
 const collaborationWidget = new CollaborationWidget();
+export const logger = new Logger();
 export const { originInsertBelow, originInsertAbove } = changeCellActions();
 export const getUserList = (): any[] => {
   return userList;
@@ -43,9 +47,14 @@ export const getThisUser = (): string => {
 const plugin: JupyterFrontEndPlugin<void> = {
   id: 'conflict-editing:plugin',
   autoStart: true,
-  requires: [INotebookTracker],
-  activate: (app: JupyterFrontEnd, tracker: INotebookTracker) => {
-    console.log('JupyterLab extension conflict-editing is activated!!!23456');
+  requires: [INotebookTracker, ICommandPalette, ILabShell],
+  activate: (
+    app: JupyterFrontEnd,
+    tracker: INotebookTracker,
+    pallette: ICommandPalette,
+    labShell: ILabShell | null
+  ) => {
+    console.log('JupyterLab extension conflict-editing is activated!!!');
     // // change the cell insert, copy, delete behaviors
     // app.docRegistry.addWidgetExtension(
     //   'Notebook',
@@ -60,13 +69,65 @@ const plugin: JupyterFrontEndPlugin<void> = {
     });
     widget.title.closable = true;
     widget.title.icon = Icons.jupyterFaviconIcon;
-    app.shell.add(widget, 'right');
+    app.shell.add(widget, 'right', { rank: 99 });
+
+    const openCommand = 'sidewidget:open';
+    app.commands.addCommand(openCommand, {
+      label: 'Open Side Widget',
+      execute() {
+        if (labShell) {
+          labShell?.expandRight();
+          labShell.activateById(widget.id);
+        }
+      }
+    });
+    app.commands.execute(openCommand, { origin: 'init' }).catch(reason => {
+      console.error(
+        `An error occurred during the execution of jlab-examples:command.\n${reason}`
+      );
+    });
+    pallette.addItem({ command: openCommand, category: 'Reference' });
 
     tracker.widgetAdded.connect(
       async (_sender: INotebookTracker, notebookPanel: NotebookPanel) => {
         await notebookPanel.revealed;
         await notebookPanel.sessionContext.ready;
         await tracker.currentWidget?.revealed;
+        // simulate user info
+        const username = document.cookie
+          .split('; ')
+          ?.find(row => row.startsWith('hub_user='))
+          ?.split('=')[1];
+        const isCreator =
+          window.location.pathname.split('/')[1] === 'lab' ||
+          window.location.pathname.split('/')[2] === username;
+        const color = Math.floor(Math.random() * 16777215).toString(16);
+
+        const model = notebookPanel.content.model!.sharedModel as YNotebook;
+        const currentState = model.awareness.getLocalState();
+        thisUser = currentState?.user.name ?? '';
+        if (username) {
+          model.awareness.setLocalStateField('user', {
+            name: username,
+            color: `#${color}`,
+            isCreator
+          });
+          thisUser = username;
+        }
+
+        // collect current users
+        model.awareness.on('change', () => {
+          const users: any[] = [];
+          model.awareness.getStates().forEach(state => {
+            if (state.user) {
+              users.push(state.user);
+            }
+          });
+          userList = users;
+          collaborationWidget.updateUserList(users);
+        });
+
+        logger.send(EventType.OpenNotebook);
 
         // after opening a widget, rewrite the cell execution method, and execute the magic code
         if (notebookPanel.sessionContext.session) {
@@ -136,40 +197,6 @@ const plugin: JupyterFrontEndPlugin<void> = {
             }
           }
         );
-
-        // simulate user info
-        const username = document.cookie
-          .split('; ')
-          ?.find(row => row.startsWith('hub_user='))
-          ?.split('=')[1];
-        const isCreator =
-          window.location.pathname.split('/')[1] === 'lab' ||
-          window.location.pathname.split('/')[2] === username;
-        const color = Math.floor(Math.random() * 16777215).toString(16);
-
-        const model = notebookPanel.content.model!.sharedModel as YNotebook;
-        const currentState = model.awareness.getLocalState();
-        thisUser = currentState?.user.name ?? '';
-        if (username) {
-          model.awareness.setLocalStateField('user', {
-            name: username,
-            color: `#${color}`,
-            isCreator
-          });
-          thisUser = username;
-        }
-
-        // collect current users
-        model.awareness.on('change', () => {
-          const users: any[] = [];
-          model.awareness.getStates().forEach(state => {
-            if (state.user) {
-              users.push(state.user);
-            }
-          });
-          userList = users;
-          collaborationWidget.updateUserList(users);
-        });
       }
     );
 
@@ -179,6 +206,18 @@ const plugin: JupyterFrontEndPlugin<void> = {
         renderParallelIndentationButton(cell, tracker);
       }
     });
+
+    tracker.currentChanged.connect(
+      async (
+        _sender: INotebookTracker,
+        notebookPanel: NotebookPanel | null
+      ) => {
+        await notebookPanel?.revealed;
+        await notebookPanel?.sessionContext.ready;
+        await _sender.currentWidget?.revealed;
+        collaborationWidget.updateNotebook(_sender.currentWidget);
+      }
+    );
   }
 };
 
@@ -189,16 +228,16 @@ const onCellMetaChange = (
   changes: any,
   tracker: INotebookTracker
 ): void => {
-  console.log('cell meta change');
   if (changes.key === 'conflict_editing') {
-    console.log('cell meta changed!!', cmetaData, changes);
     const conflictData = cmetaData.get('conflict_editing') as any;
     if (conflictData) {
       renderCellDecoration(widget, widgets, tracker);
+      if (changes.type === 'add') {
+        renderUnindentBtn(widget, changes.oldValue, tracker);
+      }
     } else {
       //remove cell decoration
       if (changes.type === 'change') {
-        console.log('render unindent');
         renderUnindent(widget, changes.oldValue);
         widget.model.metadata.delete('conflict_editing');
         renderCellAccessOverview(widget);
@@ -206,7 +245,6 @@ const onCellMetaChange = (
     }
   }
   if (changes.key === 'access_control') {
-    console.log('cell meta changed!!', cmetaData, changes);
     const accessData = changes.newValue;
     if (accessData) {
       if (accessData.edit && accessData.edit.includes(thisUser)) {
@@ -231,7 +269,6 @@ const onCellsChange = (
   _cells?: IObservableUndoableList<ICellModel>,
   changes?: IObservableList.IChangedArgs<ICellModel>
 ): void => {
-  console.log('on cells change', changes);
   if (changes?.type === 'add') {
     const widgets = tracker.currentWidget?.content.widgets;
     if (widgets && widgets.length > 0) {

@@ -1,7 +1,8 @@
 import { Notebook, NotebookActions } from '@jupyterlab/notebook';
+import { logger } from '.';
+import { EventType } from './logger';
 import { renderCellDecoration } from './parallelGroupView';
 export const changeCellActions = (): any => {
-  console.log('change cell actions');
   return {
     originInsertBelow: changeInsertBelow(),
     originInsertAbove: changeInsertAbove(),
@@ -20,6 +21,7 @@ const changeInsertBelow = () => {
     const newCell = notebook.activeCell;
     if (conflictData) {
       newCell?.model.metadata.set('conflict_editing', conflictData);
+      logger.send(EventType.InsertToParallelGroup);
     }
   };
   return insertBelowFn;
@@ -59,7 +61,6 @@ const changeMoveDown = () => {
     const cell = notebook.activeCell;
     const conflictData = cell?.model.metadata.get('conflict_editing');
     if (conflictData) {
-      console.log('disable move down');
       alert('can not operate this');
     } else {
       moveDownFn(notebook);
@@ -74,7 +75,6 @@ const changeMoveUp = () => {
     const cell = notebook.activeCell;
     const conflictData = cell?.model.metadata.get('conflict_editing');
     if (conflictData) {
-      console.log('disable move down');
       alert('can not operate this');
     } else {
       moveUpFn(notebook);
