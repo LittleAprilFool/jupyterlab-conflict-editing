@@ -40,6 +40,8 @@ const CollaborationComponent = ({
   // const [counter, setCounter] = useState(0);
   const activeCellRef = React.useRef<HTMLDivElement>(null);
   const messageInputRef = React.useRef<HTMLInputElement>(null);
+  const lastMessageRef = React.useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (activeCellRef.current) {
       if (cell?.node) {
@@ -53,7 +55,10 @@ const CollaborationComponent = ({
         }
       }
     }
-  }, [cell]);
+    if (lastMessageRef.current) {
+      lastMessageRef.current.scrollIntoView();
+    }
+  }, [cell, chat]);
 
   const clickVariableAccess = (e: any): any => {
     const parentNode: HTMLDivElement = e.target.parentNode as HTMLDivElement;
@@ -71,7 +76,11 @@ const CollaborationComponent = ({
 
     notebook?.model?.metadata.set('variable_inspec', newvariableList);
   };
-
+  const messageKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Enter') {
+      sendMessage();
+    }
+  };
   const sendMessage = () => {
     logger.send(EventType.SendChat);
     const messageList = notebook?.model?.metadata.get('chat');
@@ -182,7 +191,7 @@ const CollaborationComponent = ({
             <div className="message-list">
               {chat.map(msg => {
                 return (
-                  <div className="msg-container">
+                  <div className="msg-container" ref={lastMessageRef}>
                     <div
                       className="msg-sender"
                       style={{ color: getColor(msg.sender) }}
@@ -199,6 +208,7 @@ const CollaborationComponent = ({
                 ref={messageInputRef}
                 className="message-input"
                 type="text"
+                onKeyDown={messageKeyDown}
               />
               <button className="message-btn" onClick={sendMessage}>
                 Send
