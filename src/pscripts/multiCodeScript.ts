@@ -23,15 +23,12 @@ class _PrivateScope(object):
             self._pre_content +=f'''try:
     {self._name}.{variable}=pickle.loads(cPickle.dumps({variable}, -1))
 except:
-    {self._name}._global_vars.remove('{variable}')\\n'''
+    {self._name}._global_vars.remove('{variable}')    
+'''
         _executeCode(self._pre_content)
         return
-        
     def _execute(self, code):
-        # rewrite code
-        # for every variable in the expression, we want to assign a prefix
-        # april.test
-        _executeCode(f'{self._name}._local_vars = _filter_var(dir({self._name}))\\n ')
+        _executeCode(f'{self._name}._local_vars = _filter_var(dir({self._name}))')
         _executeCodeLocal(code, self._name, self._local_vars)
         return
     def __setitem__(self, key, value):
@@ -39,13 +36,11 @@ except:
 
     def __getitem__(self, key):
         return getattr(self, key)
-
     def _sync(self):
         _executeCode('_global_vars = _filter_var(dir())')
         self._global_vars = _global_vars
         self._copyglobal()
         return
-
 @register_cell_magic
 def _parallelCell(line, cell):
     name='_'+line.split(" ")[0]
@@ -53,7 +48,8 @@ def _parallelCell(line, cell):
     exec(f'__code = """{cell}"""', globals())
     content = f"""if not "{name}" in dir():
     {name} = _PrivateScope('{name}')
-    {name}._copyglobal()"""
+    {name}._copyglobal()
+    """
     _executeCode(content)
     _executeCode(f'{name}._execute(__code)')
     
@@ -74,15 +70,18 @@ def _executeCode(content):
     
     # if the last line in content contains one variable, change it to display()
     content_lines = [i for i in content.split('\\n') if i]
-    _exp = ast.parse(content_lines[-1].replace(" ", ""))
-    nodes = [node for node in ast.walk(_exp)]
-    if(len(nodes)==4 and isinstance(nodes[2], ast.Name)):
-        content_lines[-1]=f'display({content_lines[-1]})'
+    lastline = content_lines[-1]
+    if(lastline[0] != ' '):
+        _exp = ast.parse(lastline.replace(" ", ""))
+        nodes = [node for node in ast.walk(_exp)]
+        if not isinstance(nodes[1], ast.Assign):
+            content_lines[-1]=f'_lastvalue = {lastline}'
+            content_lines.append(f'if type(_lastvalue)!=type(None):')
+            content_lines.append(f'  display(_lastvalue)')
     content = ('\\n').join(content_lines)
-    
+    content = content + '\\n'
     # TODO: df.head() couldn't get printed out
     # execute the line
-    # print(content)
     exec(content, globals())
     sys.stdout = old_stdout
     if(redirected_output.getvalue()):
@@ -97,16 +96,18 @@ def _executeCodeLocal(content, name, variables):
     
     # if the last line in content contains one variable, change it to display()
     content_lines = [i for i in content.split('\\n') if i]
-    _exp = ast.parse(content_lines[-1].replace(" ", ""))
-    nodes = [node for node in ast.walk(_exp)]
-    last_line = None
-    if(len(nodes)==4 and isinstance(nodes[2], ast.Name)):
-        content_lines[-1]=f'display({content_lines[-1]})'
-        content = ('\\n').join(content_lines)
-    else:
-        content = ('\\n').join(content_lines)
-        content = content + '\\n'
-
+    lastline = content_lines[-1]
+    if(lastline[0] != ' '):
+        # forgot why need to replace?
+        # _exp = ast.parse(lastline.replace(" ", ""))
+        _exp = ast.parse(lastline)
+        nodes = [node for node in ast.walk(_exp)]
+        if not isinstance(nodes[1], ast.Assign):
+            content_lines[-1]=f'_lastvalue = {lastline}'
+            content_lines.append(f'if type(_lastvalue)!=type(None):')
+            content_lines.append(f'  display(_lastvalue)')
+    content = ('\\n').join(content_lines)
+    content = content + '\\n'
     # execute the line, pass variable remappings
     _locals = _vartoLocals(name, variables)
     code = f'''_locals = {_locals}
@@ -124,5 +125,5 @@ for _key, _value in _locals.items():
         output = redirected_output.getvalue()
         if(output[-1] == '\\n'):
             output = output[:-1]
-        print(output)       
+        print(output)     
 `;
