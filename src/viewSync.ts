@@ -7,12 +7,14 @@ export const updateVariableHighlights = (
   tracker: INotebookTracker,
   variables: any[]
 ): void => {
-  const staledHighlights = document.querySelectorAll(
-    '.restricted-variable-highlights'
-  );
-  staledHighlights.forEach(stale => {
-    stale.classList.remove('restricted-variable-highlights');
+  const widgets = tracker.currentWidget?.content?.widgets;
+  widgets?.forEach(widget => {
+    if (widget.editor instanceof CodeMirrorEditor) {
+      const cm = widget.editor.editor;
+      cm.getAllMarks().forEach(marker => marker.clear());
+    }
   });
+
   variables.forEach(variable => {
     const widgets = tracker.currentWidget?.content?.widgets;
     widgets?.forEach(widget => {
