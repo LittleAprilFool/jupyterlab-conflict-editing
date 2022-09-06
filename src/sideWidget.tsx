@@ -111,6 +111,23 @@ const CollaborationComponent = ({
     return color;
   };
 
+  const selectAll = (e: any) => {
+    logger.send(EventType.ChangeVariableAccess);
+    const newvariableList = JSON.parse(JSON.stringify(variable_inspec));
+    const node = e.target;
+    const isEveryoneNow = newvariableList[node.dataset.vid].access.length === 0;
+
+    //deselect all
+    if (isEveryoneNow) {
+      newvariableList[node.dataset.vid].access = userlist.map(x => x.name);
+    }
+    //select all
+    else {
+      newvariableList[node.dataset.vid].access = [];
+    }
+    notebook?.model?.metadata.set('variable_inspec', newvariableList);
+  };
+
   return (
     <div className="widget-wrapper">
       <div className="section-wrapper">
@@ -160,6 +177,18 @@ const CollaborationComponent = ({
                         {variable.access.length === 0 ? 'Everyone' : 'Locked'}
                       </span>
                       <ul className="items">
+                        <li>
+                          Select All{' '}
+                          <input
+                            type="checkbox"
+                            name="select all"
+                            id="selectall"
+                            className="selectall-input"
+                            data-vid={vid}
+                            onClick={selectAll}
+                            checked={variable.access.length === 0}
+                          />
+                        </li>
                         {userlist.map((user, index) => {
                           return (
                             <li>

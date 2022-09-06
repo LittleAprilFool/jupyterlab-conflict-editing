@@ -104,12 +104,37 @@ const createOptionPanel = (
   const selectAllText = document.createElement('span');
   selectAllText.textContent = 'Select All';
   selectAllContainer.appendChild(selectAllText);
-  const selectAllIcon = document.createElement('span');
-  selectAllIcon.innerHTML = `<label class="switch">
-    <input type="checkbox">
-    <span class="slider round"></span>
-  </label>`;
-  selectAllContainer.appendChild(selectAllIcon);
+  const selectAllInput = document.createElement('input');
+  selectAllInput.type = 'checkbox';
+  selectAllInput.className = 'selectall-btn';
+  selectAllInput.checked = blacklist.length === 0;
+  selectAllInput.onclick = () => {
+    const access = {
+      edit: [] as string[],
+      read: [] as string[]
+    };
+    if (cell) {
+      if (mode === 'edit') {
+        access.edit = blacklist.length === 0 ? userlist.map(x => x.name) : [];
+        if (blacklist.length === 0) {
+          cell.editorWidget.addClass('colab-edit-lock');
+        } else {
+          cell.editorWidget.removeClass('colab-edit-lock');
+        }
+      }
+      if (mode === 'read') {
+        access.read = blacklist.length === 0 ? userlist.map(x => x.name) : [];
+        if (blacklist.length === 0) {
+          cell.editorWidget.addClass('colab-read-lock');
+        } else {
+          cell.editorWidget.removeClass('colab-read-lock');
+        }
+      }
+    }
+    cell?.model.metadata.set('access_control', {});
+    cell?.model.metadata.set('access_control', access);
+  };
+  selectAllContainer.appendChild(selectAllInput);
   const userListContainer = document.createElement('div');
   userlist.forEach(user => {
     const userOptionWrapper = document.createElement('div');
@@ -155,7 +180,7 @@ const createOptionPanel = (
   });
   optionContainer.appendChild(title);
   optionContainer.appendChild(closeBtn);
-  //   optionContainer.appendChild(selectAllContainer);
+  optionContainer.appendChild(selectAllContainer);
   optionContainer.appendChild(userListContainer);
   return optionContainer;
 };

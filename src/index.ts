@@ -164,6 +164,17 @@ const plugin: JupyterFrontEndPlugin<void> = {
           }
 
           renderCellAccessOverview(widget);
+
+          const access = widget.model.metadata.get('access_control') as any;
+          if (access) {
+            // render read/edit block
+            if (access.edit.includes(thisUser)) {
+              widget.addClass('colab-edit-lock');
+            }
+            if (access.read.includes(thisUser)) {
+              widget.addClass('colab-read-lock');
+            }
+          }
         });
 
         // listen to cell changes
