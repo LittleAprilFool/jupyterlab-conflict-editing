@@ -109,6 +109,7 @@ const createOptionPanel = (
   selectAllInput.className = 'selectall-btn';
   selectAllInput.checked = blacklist.length === 0;
   selectAllInput.onclick = () => {
+    logger.send(EventType.ChangeCellAccess);
     const access = {
       edit: [] as string[],
       read: [] as string[]
