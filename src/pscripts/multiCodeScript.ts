@@ -111,11 +111,14 @@ def _executeCodeLocal(content, name, variables):
     # execute the line, pass variable remappings
     _locals = _vartoLocals(name, variables)
     code = f'''_locals = {_locals}
-#_merged = globals()
-#_merged.update(_locals)
-exec(\\'\\'\\'{content}\\'\\'\\', globals(), _locals)
-for _key, _value in _locals.items():
-    {name}[_key] = _value
+_globals = globals()
+_merged = dict()
+_merged.update(_globals)
+_merged.update(_locals)
+exec(\\'\\'\\'{content}\\'\\'\\', _merged, _merged)
+for _key, _value in _merged.items():
+    if _key[0]!='_':
+        {name}[_key] = _value
 '''
     try:
         exec(code, globals())
